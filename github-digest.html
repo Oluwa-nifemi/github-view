@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GitHub Digest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafaf9;
+    --panel: #ffffff;
+    --text: #18181b;
+    --muted: #71717a;
+    --border: #e4e4e7;
+    --hover: #f4f4f5;
+    --accent: #0969da;
+    --red: #cf222e;
+    --orange: #d97706;
+    --yellow: #bf8700;
+    --green: #1a7f37;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --border: #30363d;
+      --hover: #1f242c;
+      --accent: #58a6ff;
+      --red: #f85149;
+      --orange: #f0883e;
+      --yellow: #d29922;
+      --green: #3fb950;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  .controls { display: flex; gap: 12px; align-items: center; }
+  #last-refresh { font-size: 13px; color: var(--muted); }
+  button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  button:hover { background: var(--hover); }
+  button.primary,
+  button.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  button.primary:hover,
+  button.active:hover { filter: brightness(1.1); }
+
+  #summary {
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    margin-bottom: 16px;
+    color: var(--muted);
+  }
+  #summary.has-changes { color: var(--text); border-color: var(--accent); }
+
+  #setup {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-width: 600px;
+    margin: 40px auto;
+  }
+  #setup h2 { margin-top: 0; }
+  #setup ol { padding-left: 20px; line-height: 1.7; }
+  #setup input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  #setup .actions { margin-top: 16px; display: flex; gap: 10px; }
+  #setup .error { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .filters label { font-size: 13px; color: var(--muted); margin-right: 4px; }
+  .author-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .author-chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    cursor: pointer;
+    background: var(--bg);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .author-chip.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .author-chip img { width: 16px; height: 16px; border-radius: 50%; }
+
+  section.section {
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  section.section > h2 {
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: default;
+    user-select: none;
+  }
+  section.section.collapsible > h2 { cursor: pointer; }
+  section.section.collapsed > h2 { border-bottom: none; }
+  section.section.collapsed .cards { display: none; }
+  section.section h2 .count {
+    margin-left: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  section.section h2 .toggle { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  .cards { padding: 8px; }
+  .subgroup h3 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 12px 8px 6px;
+  }
+  .subgroup:first-child h3 { margin-top: 4px; }
+
+  .card {
+    position: relative;
+    padding: 12px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    margin: 4px 0;
+    transition: background 0.12s ease, opacity 0.18s ease;
+  }
+  .card:hover { background: var(--hover); }
+  .card.is-new { border-left: 3px solid var(--green); padding-left: 11px; }
+  .card.is-escalated { border-left: 3px solid var(--red); padding-left: 11px; }
+  .card.is-updated { border-left: 3px solid var(--orange); padding-left: 11px; }
+  .card.is-new-review { border-left: 3px solid var(--accent); padding-left: 11px; }
+  .card.stale { opacity: 0.4; }
+  .card.stale:hover { opacity: 1; }
+  .card.archived { opacity: 0.4; background: var(--bg); }
+  .card.archived:hover { opacity: 1; }
+
+  .card-corner {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .card-action {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, border-color 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card:hover .card-action { opacity: 0.7; }
+  .card-action:hover { opacity: 1 !important; background: var(--bg); border-color: var(--border); color: var(--text); }
+  .card-action.unarchive { opacity: 1; color: var(--accent); }
+  .card-action.has-note { opacity: 0.9; color: var(--accent); }
+  .card:hover .card-action.has-note { opacity: 1; }
+
+  .card-note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .note-delete {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 4px 6px;
+    margin: -4px -6px -4px 0;
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s;
+  }
+  .card:hover .note-delete { opacity: 0.6; }
+  .note-delete:hover { opacity: 1 !important; color: var(--text); }
+  .card-note-editor {
+    display: block;
+    margin-top: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 6px 8px;
+    outline: none;
+  }
+
+  .card-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; padding-right: 90px; }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .card-meta .author { display: inline-flex; align-items: center; gap: 5px; }
+  .card-meta img.avatar { width: 16px; height: 16px; border-radius: 50%; }
+  .card-meta .repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .chips { display: inline-flex; gap: 4px; }
+  .chip {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .chip.approved { color: var(--green); border-color: var(--green); }
+  .chip.changes { color: var(--orange); border-color: var(--orange); }
+  .chip.ci-fail { color: var(--red); border-color: var(--red); }
+  .chip.team-handled { color: var(--accent); border-color: var(--accent); }
+  .chip.draft { color: var(--muted); border-color: var(--muted); font-weight: 600; }
+  .chip.pending { color: var(--yellow); border-color: var(--yellow); }
+  .chip.reviewed { color: var(--accent); border-color: var(--accent); }
+  .card.is-draft { opacity: 0.8; }
+  .card.is-draft:hover { opacity: 1; }
+
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .badge.NEW { background: var(--green); color: white; }
+  .badge.ESCALATED { background: var(--red); color: white; }
+  .badge.UPDATED { background: var(--orange); color: white; }
+  .badge.NEW-REVIEW { background: var(--accent); color: white; }
+
+  .empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .error-bar {
+    background: var(--red);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .error-bar code { background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 3px; }
+
+  #spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  #spinner.spinning { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer-note {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 32px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="setup" hidden>
+  <h2>GitHub Digest — Setup</h2>
+  <p>This dashboard reads your GitHub PRs directly. To do that it needs a Personal Access Token.</p>
+  <ol>
+    <li>Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">github.com/settings/tokens/new</a></li>
+    <li>Name it something like <em>"PR Digest"</em></li>
+    <li>Select scopes: <code>repo</code>, <code>read:org</code>, <code>notifications</code></li>
+    <li>Generate, copy, and paste below</li>
+  </ol>
+  <label>
+    Token (stored only in this browser's localStorage)
+    <input id="token-input" type="password" placeholder="ghp_..." autocomplete="off" spellcheck="false">
+  </label>
+  <div class="actions">
+    <button id="token-save" class="primary">Save and load</button>
+  </div>
+  <div id="token-error" class="error" hidden></div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>GitHub Digest</h1>
+    <div class="controls">
+      <span id="last-refresh">—</span>
+      <span id="spinner"></span>
+      <button id="refresh-btn" class="primary">Refresh</button>
+      <button id="logout-btn" title="Forget token">Sign out</button>
+    </div>
+  </header>
+
+  <div id="summary" hidden></div>
+  <div id="error-bar" class="error-bar" hidden></div>
+
+  <div class="filters" id="filters" hidden>
+    <label>Author:</label>
+    <div id="author-chips" class="author-chips"></div>
+    <button id="teammates-filter">Teammates only</button>
+    <label>Repo:</label>
+    <div id="repo-chips" class="author-chips"></div>
+    <button id="clear-filter">Clear</button>
+  </div>
+
+  <section class="section" id="section-1">
+    <h2><span>🔴</span> Needs Your Attention <span class="count">0</span></h2>
+    <div class="cards" data-section="1"></div>
+  </section>
+
+  <section class="section collapsible collapsed" id="section-4">
+    <h2><span>🟢</span> Your Open PRs <span class="count">0</span><span class="toggle">▸ expand</span></h2>
+    <div class="cards" data-section="4">
+      <div class="subgroup" data-status="ci_failing">
+        <h3>❌ CI failing</h3>
+        <div class="subgroup-body"></div>
+      </div>
+      <div class="subgroup" data-status="changes_requested">
+        <h3>💬 Changes requested</h3>
+        <div class="subgroup-body"></div>
+      </div>
+      <div class="subgroup" data-status="approved">
+        <h3>✅ Approved — ready to merge</h3>
+        <div class="subgroup-body"></div>
+      </div>
+      <div class="subgroup" data-status="awaiting">
+        <h3>⏳ Awaiting review</h3>
+        <div class="subgroup-body"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="section-3">
+    <h2><span>🟡</span> Team Requests — Teammates <span class="count">0</span></h2>
+    <div class="cards" data-section="3"></div>
+  </section>
+
+  <section class="section collapsible" id="section-3b">
+    <h2><span>⚪</span> Team Requests — Others <span class="count">0</span><span class="toggle">▾ collapse</span></h2>
+    <div class="cards" data-section="3b"></div>
+  </section>
+
+  <section class="section collapsible" id="section-team-handled">
+    <h2><span>🔵</span> Team Handled <span class="count">0</span><span class="toggle">▾ collapse</span></h2>
+    <div class="cards" data-section="team-handled"></div>
+  </section>
+
+  <section class="section collapsible collapsed" id="section-engaged">
+    <h2><span>💭</span> Engaged <span class="count">0</span><span class="toggle">▸ expand</span></h2>
+    <div class="cards" data-section="engaged"></div>
+  </section>
+
+  <section class="section collapsible collapsed" id="section-teammates-open">
+    <h2><span>👥</span> Teammates' Open PRs <span class="count">0</span><span class="toggle">▸ expand</span></h2>
+    <div class="cards" data-section="teammates-open"></div>
+  </section>
+
+  <section class="section collapsible collapsed" id="section-archive">
+    <h2><span>📦</span> Archived <span class="count">0</span><span class="toggle">▸ expand</span></h2>
+    <div class="cards" data-section="archive"></div>
+  </section>
+
+  <section class="section collapsible collapsed" id="section-deleted">
+    <h2><span>🗑️</span> Deleted <span class="count">0</span><span class="toggle">▸ expand</span></h2>
+    <div class="cards" data-section="deleted"></div>
+  </section>
+
+  <div class="footer-note">
+    Background notifications are handled by the watcher in <code>.gh-digest/</code> — this dashboard is read-only.
+  </div>
+</div>
+
+</div>
+
+<script>
+(() => {
+  // ---- Config ----
+  const USERNAME = 'Oluwa-nifemi';
+  const ORG = 'ardoq';
+  const TEAM = 'team-ai';
+  const STORAGE_TOKEN = 'gh_token';
+  const STORAGE_SNAPSHOT = 'gh_digest_last_snapshot';
+  const STORAGE_FILTER = 'gh_digest_filter_authors';
+  const STORAGE_REPO_FILTER = 'gh_digest_filter_repos';
+  const STORAGE_TEAMMATES = 'gh_digest_teammates';
+  const STORAGE_ARCHIVED = 'gh_digest_archived';
+  const STORAGE_NOTES = 'gh_digest_notes';
+  const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
+  const TEAMMATES_TTL_MS = 24 * 60 * 60 * 1000;
+  const AUTO_REFRESH_MS = 3 * 60 * 1000;
+  const STALE_DAYS = 30;
+
+  // ---- DOM ----
+  const $ = (id) => document.getElementById(id);
+  const setupEl = $('setup');
+  const appEl = $('app');
+  const summaryEl = $('summary');
+  const errorBar = $('error-bar');
+  const filtersEl = $('filters');
+  const authorChipsEl = $('author-chips');
+  const repoChipsEl = $('repo-chips');
+  const lastRefreshEl = $('last-refresh');
+  const spinnerEl = $('spinner');
+
+  // ---- State ----
+  let teammates = new Set(); // populated by getTeammates
+  let lastSnapshotTimestamp = null;
+  let rateLimitedUntilMs = 0;
+  const etagCache = new Map(); // url -> { etag, data }
+  let activeAuthorFilters = new Set(JSON.parse(localStorage.getItem(STORAGE_FILTER) || '[]'));
+  let activeRepoFilters = new Set(JSON.parse(localStorage.getItem(STORAGE_REPO_FILTER) || '[]'));
+  let teammatesFilterOn = localStorage.getItem(STORAGE_TEAMMATES) === '1';
+  let archivedPRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED) || '{}');
+
+  function persistArchived() {
+    localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(archivedPRs));
+  }
+
+  function isArchived(pr) {
+    const entry = archivedPRs[pr.id];
+    if (!entry) return false;
+    if (entry.deleted) return true; // permanent — never auto-resurface
+    // Auto-unarchive if the PR has had activity since it was archived
+    if (entry.signature && pr.updatedAt && pr.updatedAt !== entry.signature) {
+      delete archivedPRs[pr.id];
+      persistArchived();
+      return false;
+    }
+    return true;
+  }
+
+  function isDeleted(pr) {
+    const entry = archivedPRs[pr.id];
+    return !!(entry && entry.deleted);
+  }
+
+  function archivePR(pr) {
+    archivedPRs[pr.id] = {
+      archivedAt: new Date().toISOString(),
+      signature: pr.updatedAt || null,
+    };
+    persistArchived();
+  }
+
+  function deletePR(pr) {
+    archivedPRs[pr.id] = {
+      archivedAt: archivedPRs[pr.id]?.archivedAt || new Date().toISOString(),
+      deletedAt: new Date().toISOString(),
+      deleted: true,
+    };
+    persistArchived();
+  }
+
+  function unarchivePR(prId) {
+    delete archivedPRs[prId];
+    persistArchived();
+  }
+
+  // ---- Notes ----
+  let prNotes = JSON.parse(localStorage.getItem(STORAGE_NOTES) || '{}');
+
+  function getNote(prId) { return prNotes[prId]?.text || ''; }
+
+  function saveNote(prId, text) {
+    if (text.trim()) {
+      prNotes[prId] = { text, savedAt: new Date().toISOString() };
+    } else {
+      delete prNotes[prId];
+    }
+    localStorage.setItem(STORAGE_NOTES, JSON.stringify(prNotes));
+  }
+
+  function isStale(pr) {
+    const iso = pr.updatedAt || pr.createdAt;
+    if (!iso) return false;
+    const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+    return days > STALE_DAYS;
+  }
+
+  // ---- Token onboarding ----
+  function showSetup(error) {
+    setupEl.hidden = false;
+    appEl.hidden = true;
+    if (error) {
+      const errEl = $('token-error');
+      errEl.textContent = error;
+      errEl.hidden = false;
+    }
+  }
+  function hideSetup() {
+    setupEl.hidden = true;
+    appEl.hidden = false;
+  }
+
+  $('token-save').addEventListener('click', async () => {
+    const token = $('token-input').value.trim();
+    if (!token) return;
+    $('token-error').hidden = true;
+    try {
+      const res = await fetch('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+      });
+      if (!res.ok) throw new Error(`Token rejected (${res.status})`);
+      const me = await res.json();
+      if (me.login.toLowerCase() !== USERNAME.toLowerCase()) {
+        throw new Error(`Token belongs to ${me.login}, expected ${USERNAME}`);
+      }
+      localStorage.setItem(STORAGE_TOKEN, token);
+      hideSetup();
+      refresh();
+    } catch (err) {
+      $('token-error').textContent = err.message;
+      $('token-error').hidden = false;
+    }
+  });
+
+  $('logout-btn').addEventListener('click', () => {
+    if (!confirm('Forget token and snapshot? (filters preserved)')) return;
+    localStorage.removeItem(STORAGE_TOKEN);
+    localStorage.removeItem(STORAGE_SNAPSHOT);
+    location.reload();
+  });
+
+  // ---- GitHub fetch helpers ----
+  class RateLimitError extends Error {
+    constructor(resetMs) {
+      super('GitHub rate limit exceeded');
+      this.resetMs = resetMs;
+    }
+  }
+
+  function ghFetch(path, token) {
+    const url = path.startsWith('http') ? path : `https://api.github.com${path}`;
+    return fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+  }
+  async function ghJson(path, token) {
+    const url = path.startsWith('http') ? path : `https://api.github.com${path}`;
+    const cached = etagCache.get(url);
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+    if (cached?.etag) headers['If-None-Match'] = cached.etag;
+    const res = await fetch(url, { headers });
+    if (res.status === 304) return cached.data;
+    if (!res.ok) {
+      const remaining = res.headers.get('X-RateLimit-Remaining');
+      const resetSec = res.headers.get('X-RateLimit-Reset');
+      if ((res.status === 403 || res.status === 429) && remaining === '0' && resetSec) {
+        throw new RateLimitError(parseInt(resetSec, 10) * 1000);
+      }
+      const body = await res.text();
+      throw new Error(`${path} ${res.status}: ${body.slice(0, 120)}`);
+    }
+    const data = await res.json();
+    const etag = res.headers.get('ETag');
+    if (etag) etagCache.set(url, { etag, data });
+    return data;
+  }
+  async function search(query, token) {
+    const data = await ghJson(`/search/issues?q=${encodeURIComponent(query)}&per_page=100`, token);
+    return data.items || [];
+  }
+  async function ghGraphQL(query, token) {
+    const res = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      const remaining = res.headers.get('X-RateLimit-Remaining');
+      const resetSec = res.headers.get('X-RateLimit-Reset');
+      if ((res.status === 403 || res.status === 429) && remaining === '0' && resetSec) {
+        throw new RateLimitError(parseInt(resetSec, 10) * 1000);
+      }
+      const body = await res.text();
+      throw new Error(`GraphQL ${res.status}: ${body.slice(0, 120)}`);
+    }
+    const json = await res.json();
+    if (json.errors) throw new Error(`GraphQL error: ${json.errors[0]?.message}`);
+    return json.data;
+  }
+  // Search for open PRs matching multiple author: or review-requested: qualifiers in one request.
+  // GitHub's GraphQL search ORs multiple qualifier values of the same type.
+  async function searchByTeammates(qualifier, logins, token, extraQ = '') {
+    if (logins.length === 0) return [];
+    const qualifierStr = logins.map(login => `${qualifier}:${login}`).join(' ');
+    const q = `is:pr is:open archived:false org:${ORG} ${qualifierStr} ${extraQ}`.trimEnd();
+    const gql = `{ search(query: ${JSON.stringify(q)}, type: ISSUE, first: 100) {
+      nodes { ... on PullRequest {
+        number title url updatedAt createdAt isDraft
+        author { login }
+        assignees(first: 10) { nodes { login } }
+        repository { nameWithOwner }
+      } }
+    } }`;
+    const data = await ghGraphQL(gql, token);
+    // Reshape GraphQL nodes to match the REST search item shape expected by callers
+    return (data.search.nodes || []).map(node => ({
+      number: node.number,
+      title: node.title,
+      html_url: node.url,
+      updated_at: node.updatedAt,
+      created_at: node.createdAt,
+      draft: node.isDraft,
+      user: { login: node.author?.login || null },
+      assignees: (node.assignees?.nodes || []).map(u => ({ login: u.login })),
+      repository_url: `https://api.github.com/repos/${node.repository.nameWithOwner}`,
+    }));
+  }
+  function repoFromIssue(item) {
+    const match = item.repository_url.match(/\/repos\/(.+)$/);
+    return match ? match[1] : null;
+  }
+
+  // ---- Teammates (with 24h cache) ----
+  async function getTeammates(token) {
+    const cached = localStorage.getItem(STORAGE_TEAMMATES_DATA);
+    if (cached) {
+      try {
+        const { members, fetchedAt } = JSON.parse(cached);
+        if (Date.now() - fetchedAt < TEAMMATES_TTL_MS) {
+          return new Set(members);
+        }
+      } catch {}
+    }
+    try {
+      const members = await ghJson(`/orgs/${ORG}/teams/${TEAM}/members?per_page=100`, token);
+      const logins = members.map(m => m.login);
+      localStorage.setItem(STORAGE_TEAMMATES_DATA, JSON.stringify({
+        members: logins,
+        fetchedAt: Date.now(),
+      }));
+      return new Set(logins);
+    } catch (err) {
+      console.warn('teammates fetch failed:', err);
+      return new Set();
+    }
+  }
+
+  // ---- Notifications-as-source (catches PRs your team handled after a teammate review) ----
+  function parsePRFromNotification(notification) {
+    if (notification.subject?.type !== 'PullRequest') return null;
+    const url = notification.subject?.url || '';
+    const match = url.match(/\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)/);
+    if (!match) return null;
+    const repo = match[1];
+    if (!repo.startsWith(`${ORG}/`)) return null;
+    return { repo, number: parseInt(match[2], 10) };
+  }
+
+  async function fetchRelevantNotifications(token) {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const list = await ghJson(
+      `/notifications?all=true&since=${encodeURIComponent(since)}&per_page=50`,
+      token,
+    );
+    return list.filter(n =>
+      ['review_requested', 'team_mention'].includes(n.reason)
+      && n.subject?.type === 'PullRequest'
+    );
+  }
+
+  // ---- PR enrichment helpers ----
+
+  function normalizeReviews(rawReviews) {
+    return rawReviews.map(r => ({
+      user: r.user?.login,
+      state: r.state,
+      submittedAt: r.submitted_at,
+    }));
+  }
+
+  // Returns Map<reviewer, latestReview> for normalized reviews, skipping comment-only
+  // reviews, the PR author's own reviews, and reviewers who have been re-requested
+  // (a re-request supersedes any prior review from that person).
+  function latestNonCommentReviewsByReviewer(reviews, authorLogin, pendingLogins) {
+    const rerequested = new Set(pendingLogins || []);
+    const latestByReviewer = new Map();
+    for (const review of reviews) {
+      if (review.user === authorLogin) continue;
+      if (review.state === 'COMMENTED') continue;
+      if (rerequested.has(review.user)) continue;
+      const existing = latestByReviewer.get(review.user);
+      if (!existing || new Date(review.submittedAt) > new Date(existing.submittedAt)) {
+        latestByReviewer.set(review.user, review);
+      }
+    }
+    return latestByReviewer;
+  }
+
+  // Reuse a cached PR entry, refreshing only the fields that can drift without
+  // bumping updated_at (title edits; teammate membership changes).
+  function applyCachedPR(cached, title) {
+    return {
+      ...cached,
+      title,
+      authorIsTeammate: !!(cached.author && teammates.has(cached.author)),
+    };
+  }
+
+  // Construct the base PR object fields shared by every section.
+  // Pass null for item when only prDetail is available (section 5),
+  // or null for prDetail when no per-PR API call was made (section 7).
+  function buildPRBase(prId, repo, section, item, prDetail) {
+    const src = prDetail ?? item;
+    return {
+      id: prId,
+      number: item?.number ?? prDetail.number,
+      repo,
+      title: item?.title ?? prDetail.title,
+      author: src.user?.login || null,
+      authorAvatar: src.user?.avatar_url || null,
+      authorIsTeammate: !!(src.user?.login && teammates.has(src.user.login)),
+      url: src.html_url,
+      createdAt: src.created_at,
+      updatedAt: prDetail?.updated_at ?? item.updated_at,
+      section,
+      isDraft: !!(prDetail?.draft ?? item.draft),
+    };
+  }
+
+  // ---- Snapshot builder ----
+  async function buildSnapshot(token, cachedSnapshot) {
+    teammates = await getTeammates(token);
+    const cachedPRs = cachedSnapshot?.prs || {};
+
+    const reviewQ = `is:pr is:open archived:false review-requested:${USERNAME} org:${ORG}`;
+    const teamReviewQ = `is:pr is:open archived:false team-review-requested:${ORG}/${TEAM} org:${ORG}`;
+    const authoredQ = `is:pr is:open archived:false author:${USERNAME} org:${ORG}`;
+    const assignedQ = `is:pr is:open archived:false assignee:${USERNAME} org:${ORG}`;
+
+    const teammateLoginsForSearch = [...teammates].filter(login => login !== USERNAME);
+    const teammateReviewSearches = searchByTeammates('review-requested', teammateLoginsForSearch, token)
+      .catch(err => { console.warn('teammate review-requested fetch failed:', err); return []; });
+
+    const [reviewItems, teamReviewItems, authoredItems, assignedItems, teammateReviewItems, notifications] = await Promise.all([
+      search(reviewQ, token),
+      search(teamReviewQ, token).catch(err => { console.warn('team-review-requested fetch failed:', err); return []; }),
+      search(authoredQ, token),
+      search(assignedQ, token),
+      teammateReviewSearches,
+      fetchRelevantNotifications(token).catch(err => {
+        console.warn('notifications fetch failed:', err);
+        return [];
+      }),
+    ]);
+
+    // Merge team-review-requested results into reviewItems (dedupe by PR id).
+    // Teammate-authored PRs are kept here: a direct request lands in section 1,
+    // a team request in section 3 (teamTeammates). Section 7's dedup skips anything
+    // already classified, so they won't double-appear under "Teammates' Open PRs".
+    const reviewItemsMap = new Map();
+    for (const item of [...reviewItems, ...teamReviewItems]) {
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      reviewItemsMap.set(`${repo}#${item.number}`, item);
+    }
+    const allReviewItems = [...reviewItemsMap.values()];
+
+    // Claudette-authored PRs where a teammate has been asked to review.
+    // Can't search `author:Claudette2-0` directly (GitHub rejects bot accounts),
+    // so we derive from teammates' review-requested lists.
+    const claudetteItemsMap = new Map();
+    for (const item of teammateReviewItems) {
+      if (item.user?.login !== 'Claudette2-0') continue;
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      claudetteItemsMap.set(`${repo}#${item.number}`, item);
+    }
+    const claudetteItems = [...claudetteItemsMap.values()];
+
+    // Section 4 sources: PRs you authored OR PRs assigned to you that were opened by claudette (AI agent PRs).
+    // Also include Claudette-authored PRs that name you as an assignee, since GitHub's
+    // assignee search occasionally misses freshly-assigned PRs.
+    const claudetteAssigned = [
+      ...assignedItems.filter(item => item.user?.login === 'Claudette2-0'),
+      ...claudetteItems.filter(item => (item.assignees || []).some(a => a.login === USERNAME)),
+    ];
+    const myItemsMap = new Map();
+    for (const item of [...authoredItems, ...claudetteAssigned]) {
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      myItemsMap.set(`${repo}#${item.number}`, item);
+    }
+    const myItems = [...myItemsMap.values()];
+
+    const prs = {};
+
+    // Enrich review-requested PRs concurrently
+    await Promise.all(allReviewItems.map(async (item) => {
+      const repo = repoFromIssue(item);
+      if (!repo) return;
+      const prId = `${repo}#${item.number}`;
+
+      // Cache fast-path: if the PR is unchanged and we already enriched it as
+      // sections 1/2/3, reuse — its reviews/requested_reviewers can't have changed
+      // without updated_at bumping.
+      const cached = cachedPRs[prId];
+      // Skip fast-path if cached version pre-dates the teammate-approved
+      // re-routing: those entries may still say section 1 when current logic
+      // would send them to section 5.
+      const cachedTeammateApproved = cached && (cached.reviews || []).some(r =>
+        r.user && r.user !== USERNAME && r.state === 'APPROVED' && teammates.has(r.user)
+      );
+      const cachedUserReviewed = cached && (cached.reviews || []).some(r => r.user === USERNAME);
+      const needsRerouteRecheck = cachedTeammateApproved && !cachedUserReviewed && cached.section !== 5;
+      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined) {
+        prs[prId] = applyCachedPR(cached, item.title);
+        return;
+      }
+
+      try {
+        const [reviews, requested, prDetail] = await Promise.all([
+          ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}/requested_reviewers`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+        ]);
+        const isDirect = (requested.users || []).some(u => u.login === USERNAME);
+        const isTeam = (requested.teams || []).length > 0;
+        const userReviews = reviews
+          .filter(r => r.user?.login === USERNAME && r.state !== 'COMMENTED')
+          .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+        const lastUserReview = userReviews[0] || null;
+        const lastActivityAt = prDetail.updated_at;
+        // Latest review state per teammate (ignore your own + comment-only reviews)
+        const latestTeammateReviews = new Map();
+        for (const review of reviews) {
+          const login = review.user?.login;
+          if (!login || login === USERNAME || !teammates.has(login)) continue;
+          if (review.state === 'COMMENTED') continue;
+          const existing = latestTeammateReviews.get(login);
+          if (!existing || new Date(review.submitted_at) > new Date(existing.submitted_at)) {
+            latestTeammateReviews.set(login, review);
+          }
+        }
+        const teammateApprovers = [...latestTeammateReviews.values()]
+          .filter(r => r.state === 'APPROVED')
+          .map(r => r.user.login);
+        const teammateCovered = teammateApprovers.length > 0
+          && ![...latestTeammateReviews.values()].some(r => r.state === 'CHANGES_REQUESTED');
+        let section;
+        if (teammateCovered && !lastUserReview) {
+          // A teammate already approved and you haven't weighed in — treat as handled
+          section = 5;
+        } else if (isDirect) {
+          section = 1;
+        } else {
+          section = 3;
+        }
+        prs[prId] = {
+          ...buildPRBase(prId, repo, section, item, prDetail),
+          isDirect,
+          isTeam,
+          ...(section === 5 ? {
+            youReviewed: !!lastUserReview,
+            teammateReviewers: teammateApprovers,
+          } : {}),
+          lastUserReviewAt: lastUserReview?.submitted_at || null,
+          reviewedBefore: !!lastUserReview,
+          reviews: normalizeReviews(reviews),
+        };
+      } catch (err) {
+        console.warn(`enrich failed for ${prId}:`, err);
+      }
+    }));
+
+    // Claudette-authored PRs with a teammate as reviewer/assignee → team requests.
+    // These don't surface via review-requested:USERNAME because the request is on the
+    // teammate, not on you or your team.
+    await Promise.all(claudetteItems.map(async (item) => {
+      const repo = repoFromIssue(item);
+      if (!repo) return;
+      const prId = `${repo}#${item.number}`;
+      if (prs[prId]) return;
+      if (myItemsMap.has(prId)) return;
+
+      const cached = cachedPRs[prId];
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 3) {
+        prs[prId] = applyCachedPR(cached, item.title);
+        return;
+      }
+
+      try {
+        const prDetail = await ghJson(`/repos/${repo}/pulls/${item.number}`, token);
+        const requestedLogins = (prDetail.requested_reviewers || []).map(u => u.login);
+        const assigneeLogins = (prDetail.assignees || []).map(u => u.login);
+        const teammateRequested = requestedLogins.some(login => teammates.has(login));
+        const teammateAssigned = assigneeLogins.some(login => teammates.has(login));
+        if (!teammateRequested && !teammateAssigned) return;
+        const reviews = await ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token);
+        prs[prId] = {
+          ...buildPRBase(prId, repo, 3, item, prDetail),
+          authorIsTeammate: false, // Claudette is a bot, never a teammate
+          isDirect: false,
+          isTeam: false,
+          lastUserReviewAt: null,
+          reviews: normalizeReviews(reviews),
+        };
+      } catch (err) {
+        console.warn(`claudette team-request enrich failed for ${prId}:`, err);
+      }
+    }));
+
+    // Helper: check CI status for a given head SHA
+    async function checkCi(repo, sha) {
+      if (!sha) return false;
+      try {
+        const [checkRunsData, statusData] = await Promise.all([
+          ghJson(`/repos/${repo}/commits/${sha}/check-runs?per_page=100`, token),
+          ghJson(`/repos/${repo}/commits/${sha}/status`, token),
+        ]);
+        const checkRuns = checkRunsData.check_runs || [];
+        const statuses = statusData.statuses || [];
+        // Dedupe by (app, name): when a workflow is re-triggered (e.g. by a label
+        // change), each run creates a new check_suite, so the API returns every
+        // attempt. Keep only the latest per name+app so a since-fixed failure
+        // doesn't keep the PR red. Keying on app.id avoids collisions when two
+        // unrelated apps happen to use the same check name.
+        const latestByKey = new Map();
+        for (const run of checkRuns) {
+          const key = `${run.app?.id ?? 'none'}:${run.name}`;
+          const ts = run.completed_at || run.started_at;
+          const existing = latestByKey.get(key);
+          const existingTs = existing && (existing.completed_at || existing.started_at);
+          if (!existing || (ts && new Date(ts) > new Date(existingTs))) {
+            latestByKey.set(key, run);
+          }
+        }
+        const failing = [...latestByKey.values()].some(c =>
+          ['failure', 'timed_out', 'action_required'].includes(c.conclusion)
+        );
+        return failing || statuses.some(s => s.state === 'failure' || s.state === 'error');
+      } catch (err) {
+        console.warn(`ci check failed for ${repo} ${sha}:`, err);
+        return false;
+      }
+    }
+
+    // Enrich your own PRs concurrently
+    await Promise.all(myItems.map(async (item) => {
+      const repo = repoFromIssue(item);
+      if (!repo) return;
+      const prId = `${repo}#${item.number}`;
+
+      // Cache fast-path: if updated_at hasn't bumped, reviews + head SHA unchanged.
+      // CI can change independently though — always re-check.
+      const cached = cachedPRs[prId];
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined) {
+        const ciFailing = await checkCi(repo, cached.headSha);
+        prs[prId] = { ...cached, title: item.title, ciFailing, isDraft: !!item.draft };
+        return;
+      }
+
+      try {
+        const [reviews, prDetail] = await Promise.all([
+          ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+        ]);
+        const sha = prDetail.head?.sha;
+        const ciFailing = await checkCi(repo, sha);
+        const pendingReviewerLogins = (prDetail.requested_reviewers || []).map(u => u.login);
+        const pendingReviewers =
+          pendingReviewerLogins.length +
+          (prDetail.requested_teams || []).length;
+        prs[prId] = {
+          ...buildPRBase(prId, repo, 4, item, prDetail),
+          headSha: sha,
+          pendingReviewers,
+          pendingReviewerLogins,
+          reviews: normalizeReviews(reviews),
+          ciFailing,
+        };
+      } catch (err) {
+        console.warn(`my-pr enrich failed for ${prId}:`, err);
+      }
+    }));
+
+    // Team-handled section: PRs from notifications that the active search missed
+    // (typically because a teammate already reviewed, removing the team from
+    // requested_reviewers — and with it, you)
+    const handledCandidates = new Map();
+    for (const notification of notifications) {
+      const parsed = parsePRFromNotification(notification);
+      if (!parsed) continue;
+      const prId = `${parsed.repo}#${parsed.number}`;
+      if (prs[prId]) continue; // already covered by primary search
+      if (handledCandidates.has(prId)) continue;
+      handledCandidates.set(prId, parsed);
+    }
+
+    await Promise.all([...handledCandidates.values()].map(async ({ repo, number }) => {
+      const prId = `${repo}#${number}`;
+      try {
+        // Need prDetail to know current state + updated_at — can't skip this
+        const prDetail = await ghJson(`/repos/${repo}/pulls/${number}`, token);
+        if (prDetail.state !== 'open' || prDetail.draft) return;
+        if (prDetail.user?.login === USERNAME) return; // your own PR, shouldn't land here
+
+        // If the team is still a requested reviewer, the primary search just missed
+        // this PR (e.g. GitHub search lag) — treat it as a pending team request (section 3)
+        // rather than assuming it was already handled.
+        const teamStillRequested = (prDetail.requested_teams || [])
+          .some(t => t.slug === TEAM);
+        const isDirect = (prDetail.requested_reviewers || [])
+          .some(u => u.login === USERNAME);
+
+        if (teamStillRequested || isDirect) {
+          const reviews = await ghJson(`/repos/${repo}/pulls/${number}/reviews?per_page=100`, token);
+          prs[prId] = {
+            ...buildPRBase(prId, repo, isDirect ? 1 : 3, null, prDetail),
+            isDirect,
+            isTeam: teamStillRequested,
+            lastUserReviewAt: null,
+            reviews: normalizeReviews(reviews),
+          };
+          return;
+        }
+
+        // Cache fast-path: if updated_at matches, reviews can't have changed
+        const cached = cachedPRs[prId];
+        if (cached && cached.updatedAt === prDetail.updated_at && cached.section === 5) {
+          prs[prId] = applyCachedPR(cached, prDetail.title);
+          return;
+        }
+
+        const reviews = await ghJson(`/repos/${repo}/pulls/${number}/reviews?per_page=100`, token);
+        const youReviewed = reviews.some(r => r.user?.login === USERNAME);
+        const teammateReviewers = [...new Set(
+          reviews
+            .filter(r => r.user?.login && r.user.login !== USERNAME && teammates.has(r.user.login))
+            .map(r => r.user.login)
+        )];
+
+        prs[prId] = {
+          ...buildPRBase(prId, repo, 5, null, prDetail),
+          youReviewed,
+          teammateReviewers,
+          reviews: normalizeReviews(reviews),
+        };
+      } catch (err) {
+        console.warn(`team-handled enrich failed for ${prId}:`, err);
+      }
+    }));
+
+    // Section 6: Engaged — PRs you've commented/reviewed on recently that aren't
+    // already covered above (you weren't formally requested). Capped to the last
+    // 30 days of PR activity.
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const engagedQ = `is:pr is:open archived:false commenter:${USERNAME} org:${ORG} updated:>=${oneMonthAgo}`;
+    const engagedItems = await search(engagedQ, token).catch(err => {
+      console.warn('engaged search failed:', err);
+      return [];
+    });
+
+    await Promise.all(engagedItems.map(async (item) => {
+      const repo = repoFromIssue(item);
+      if (!repo) return;
+      const prId = `${repo}#${item.number}`;
+      if (prs[prId]) return; // already covered by an earlier section
+
+      const cached = cachedPRs[prId];
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 6) {
+        prs[prId] = applyCachedPR(cached, item.title);
+        return;
+      }
+
+      try {
+        const [reviews, prDetail] = await Promise.all([
+          ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+        ]);
+        if (prDetail.state !== 'open' || prDetail.draft) return;
+
+        prs[prId] = {
+          ...buildPRBase(prId, repo, 6, item, prDetail),
+          reviews: normalizeReviews(reviews),
+        };
+      } catch (err) {
+        console.warn(`engaged enrich failed for ${prId}:`, err);
+      }
+    }));
+
+    // Section 7: Teammates' Open PRs — every open PR authored by a team-ai member
+    // that's had activity in the last 14 days and isn't already in another section.
+    // No per-PR enrichment (just the search result data) — this section is for
+    // casual awareness, not action.
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const teammateLogins = [...teammates].filter(login => login !== USERNAME);
+    const teammateItems = await searchByTeammates('author', teammateLogins, token, `updated:>=${fourteenDaysAgo}`)
+      .catch(err => { console.warn('teammate open PRs fetch failed:', err); return []; });
+    for (const item of teammateItems) {
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      const prId = `${repo}#${item.number}`;
+      if (prs[prId]) continue; // already covered by an earlier section
+      prs[prId] = {
+        ...buildPRBase(prId, repo, 7, item, null),
+        authorIsTeammate: true, // section 7 is teammates-only by construction
+        reviews: [],
+      };
+    }
+
+    return { prs, timestamp: new Date().toISOString() };
+  }
+
+  // ---- Diff for change badges ----
+  function diff(oldSnap, newSnap) {
+    const badges = {};
+    if (!oldSnap) return badges; // baseline only on first run
+    const oldPRs = oldSnap.prs || {};
+
+    for (const [prId, pr] of Object.entries(newSnap.prs)) {
+      const old = oldPRs[prId];
+
+      if (!old) {
+        badges[prId] = 'NEW';
+      } else if (old.section !== pr.section) {
+        if (pr.section === 1 && old.section === 3) badges[prId] = 'ESCALATED';
+        else badges[prId] = 'NEW';
+      } else if (pr.section === 1 && pr.reviewedBefore && old.updatedAt !== pr.updatedAt) {
+        badges[prId] = 'UPDATED';
+      } else if (pr.section === 4) {
+        const oldKeys = new Set((old.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
+        const newReview = (pr.reviews || []).find(r =>
+          !oldKeys.has(`${r.user}:${r.submittedAt}`) && r.user !== pr.author
+        );
+        if (newReview) badges[prId] = 'NEW-REVIEW';
+      }
+    }
+
+    return badges;
+  }
+
+  // ---- Section 4 status classification ----
+  function classifyMyPR(pr) {
+    if (pr.ciFailing) return 'ci_failing';
+    const latestByReviewer = latestNonCommentReviewsByReviewer(pr.reviews, pr.author, pr.pendingReviewerLogins);
+    const states = [...latestByReviewer.values()].map(r => r.state);
+    if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
+    // Only consider fully approved when no reviewers are still pending (covers
+    // the case where two code owners are required but only one has approved —
+    // GitHub keeps the other in requested_reviewers until they review).
+    if (states.includes('APPROVED') && !pr.pendingReviewers) return 'approved';
+    return 'awaiting';
+  }
+
+  // ---- Rendering ----
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const ms = Date.now() - new Date(iso).getTime();
+    const mins = Math.round(ms / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    const months = Math.round(days / 30);
+    return `${months}mo ago`;
+  }
+
+  function reviewChips(pr) {
+    const latestByReviewer = latestNonCommentReviewsByReviewer(pr.reviews, pr.author, pr.pendingReviewerLogins);
+    const approvals = [...latestByReviewer.values()].filter(r => r.state === 'APPROVED').length;
+    const changes = [...latestByReviewer.values()].filter(r => r.state === 'CHANGES_REQUESTED').length;
+    const chips = [];
+    if (pr.section === 5) {
+      if (pr.youReviewed) {
+        chips.push(`<span class="chip team-handled">you reviewed</span>`);
+      } else if (pr.teammateReviewers && pr.teammateReviewers.length) {
+        const first = pr.teammateReviewers[0];
+        const extra = pr.teammateReviewers.length > 1 ? ` +${pr.teammateReviewers.length - 1}` : '';
+        chips.push(`<span class="chip team-handled">handled by @${escapeHtml(first)}${extra}</span>`);
+      }
+    }
+    if (pr.section === 1 && pr.reviewedBefore) chips.push(`<span class="chip reviewed">👁 reviewed before</span>`);
+    if (pr.isDraft) chips.push(`<span class="chip draft">DRAFT</span>`);
+    if (approvals > 0) chips.push(`<span class="chip approved">✓ ${approvals}</span>`);
+    if (changes > 0) chips.push(`<span class="chip changes">⚠ ${changes}</span>`);
+    if (pr.section === 4 && pr.pendingReviewers > 0) {
+      chips.push(`<span class="chip pending">⧗ ${pr.pendingReviewers} pending</span>`);
+    }
+    if (pr.ciFailing) chips.push(`<span class="chip ci-fail">CI ✗</span>`);
+    return chips.length ? `<span class="chips">${chips.join('')}</span>` : '';
+  }
+
+  function renderCard(pr, badge, archived) {
+    const ageSrc = pr.updatedAt || pr.createdAt;
+    const deleted = isDeleted(pr);
+    const badgeHtml = badge ? `<span class="badge ${badge}">${badge.replace('-', ' ')}</span>` : '';
+    const avatar = pr.authorAvatar
+      ? `<img class="avatar" src="${pr.authorAvatar}" alt="" loading="lazy">`
+      : '';
+    const classes = ['card'];
+    if (badge === 'NEW') classes.push('is-new');
+    else if (badge === 'ESCALATED') classes.push('is-escalated');
+    else if (badge === 'UPDATED') classes.push('is-updated');
+    else if (badge === 'NEW-REVIEW') classes.push('is-new-review');
+    else if (pr.isDraft) classes.push('is-draft');
+    if (isStale(pr) && !badge) classes.push('stale');
+    if (archived) classes.push('archived');
+    const actionHtml = deleted
+      ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Restore" aria-label="Restore">↺</button>`
+      : archived
+      ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Unarchive" aria-label="Unarchive">↺</button>
+         <button class="card-action archive" data-action="delete" data-pr-id="${escapeHtml(pr.id)}" title="Delete permanently" aria-label="Delete permanently">🗑</button>`
+      : `<button class="card-action archive" data-action="archive" data-pr-id="${escapeHtml(pr.id)}" title="Archive" aria-label="Archive">×</button>`;
+    const existingNote = getNote(pr.id);
+    const noteButtonClass = `card-action note-btn${existingNote ? ' has-note' : ''}`;
+    const noteHtml = existingNote
+      ? `<div class="card-note" data-pr-id="${escapeHtml(pr.id)}">${escapeHtml(existingNote)}<button class="note-delete" data-action="note-delete" data-pr-id="${escapeHtml(pr.id)}" title="Delete note" aria-label="Delete note">×</button></div>`
+      : '';
+    return `
+      <a class="${classes.join(' ')}" href="${pr.url}" target="_blank" rel="noopener" data-pr-id="${escapeHtml(pr.id)}">
+        <div class="card-corner">
+          ${badgeHtml}
+          <button class="${noteButtonClass}" data-action="note" data-pr-id="${escapeHtml(pr.id)}" title="Add note" aria-label="Add note">✎</button>
+          ${actionHtml}
+        </div>
+        <div class="card-title">${escapeHtml(pr.title)}</div>
+        <div class="card-meta">
+          <span class="author">${avatar}${escapeHtml(pr.author || 'unknown')}</span>
+          <span class="repo">${escapeHtml(pr.repo)}#${pr.number}</span>
+          <span>${relativeTime(ageSrc)}</span>
+          ${reviewChips(pr)}
+        </div>
+        ${noteHtml}
+      </a>
+    `;
+  }
+
+  function escapeHtml(string) {
+    return String(string)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function applyFilter(prs) {
+    const wantTeammates = teammatesFilterOn && teammates.size > 0;
+    const wantAuthors = activeAuthorFilters.size > 0;
+    const wantRepos = activeRepoFilters.size > 0;
+    if (!wantTeammates && !wantAuthors && !wantRepos) return prs;
+    const filtered = {};
+    for (const [prId, pr] of Object.entries(prs)) {
+      // Author/teammate condition (combined OR — both are "who" filters)
+      let whoMatch = true;
+      if (wantTeammates || wantAuthors) {
+        whoMatch = false;
+        if (wantTeammates && teammates.has(pr.author)) whoMatch = true;
+        if (wantAuthors && activeAuthorFilters.has(pr.author)) whoMatch = true;
+      }
+      // Repo condition
+      const repoMatch = !wantRepos || activeRepoFilters.has(pr.repo);
+      if (whoMatch && repoMatch) filtered[prId] = pr;
+    }
+    return filtered;
+  }
+
+  function renderList(elementId, list, badges) {
+    const sectionEl = $(elementId);
+    const cardsEl = sectionEl.querySelector('.cards');
+    sectionEl.querySelector('.count').textContent = list.length;
+    cardsEl.innerHTML = list.length === 0
+      ? ''
+      : list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr))).join('');
+  }
+
+  function render(snapshot, badges) {
+    const prs = applyFilter(snapshot.prs);
+
+    const buckets = {
+      direct: [],
+      teamTeammates: [],
+      teamOthers: [],
+      teamHandled: [],
+      engaged: [],
+      teammatesOpen: [],
+      mine: [],
+      archived: [],
+      deleted: [],
+    };
+
+    for (const pr of Object.values(prs)) {
+      if (pr.repo && !pr.repo.startsWith(`${ORG}/`)) continue;
+      if (isDeleted(pr)) {
+        buckets.deleted.push(pr);
+        continue;
+      }
+      if (isArchived(pr)) {
+        buckets.archived.push(pr);
+        continue;
+      }
+      switch (pr.section) {
+        case 1: buckets.direct.push(pr); break;
+        case 2: buckets.direct.push(pr); break;
+        case 3:
+          if (pr.authorIsTeammate) buckets.teamTeammates.push(pr);
+          else buckets.teamOthers.push(pr);
+          break;
+        case 4: buckets.mine.push(pr); break;
+        case 5: buckets.teamHandled.push(pr); break;
+        case 6: buckets.engaged.push(pr); break;
+        case 7: buckets.teammatesOpen.push(pr); break;
+      }
+    }
+
+    // Sorts
+    buckets.direct.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    buckets.teamTeammates.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    buckets.teamOthers.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    buckets.teamHandled.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    buckets.engaged.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    buckets.teammatesOpen.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    buckets.archived.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    buckets.deleted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    renderList('section-1', buckets.direct, badges);
+    renderList('section-3', buckets.teamTeammates, badges);
+    renderList('section-3b', buckets.teamOthers, badges);
+    renderList('section-team-handled', buckets.teamHandled, badges);
+    renderList('section-engaged', buckets.engaged, badges);
+    renderList('section-teammates-open', buckets.teammatesOpen, badges);
+    renderList('section-archive', buckets.archived, badges);
+    renderList('section-deleted', buckets.deleted, badges);
+
+    // Section 4: group by status
+    const byStatus = { ci_failing: [], changes_requested: [], approved: [], awaiting: [] };
+    for (const pr of buckets.mine) {
+      byStatus[classifyMyPR(pr)].push(pr);
+    }
+    for (const list of Object.values(byStatus)) {
+      list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    }
+    const section4El = $('section-4');
+    section4El.querySelector('.count').textContent = buckets.mine.length;
+    for (const [status, list] of Object.entries(byStatus)) {
+      const sub = section4El.querySelector(`.subgroup[data-status="${status}"]`);
+      const body = sub.querySelector('.subgroup-body');
+      if (list.length === 0) {
+        sub.style.display = 'none';
+      } else {
+        sub.style.display = '';
+        body.innerHTML = list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr))).join('');
+      }
+    }
+    // (no empty-state text — the count badge in the header already reads "0")
+  }
+
+  function renderFilters(snapshot) {
+    const authors = new Set();
+    const repos = new Set();
+    for (const pr of Object.values(snapshot.prs)) {
+      if (pr.author) authors.add(pr.author);
+      if (pr.repo) repos.add(pr.repo);
+    }
+    const sortedAuthors = [...authors].sort();
+    const sortedRepos = [...repos].sort();
+
+    authorChipsEl.innerHTML = sortedAuthors.map(author => {
+      const active = activeAuthorFilters.has(author) ? 'active' : '';
+      const pr = Object.values(snapshot.prs).find(p => p.author === author);
+      const avatar = pr?.authorAvatar
+        ? `<img src="${pr.authorAvatar}" alt="">`
+        : '';
+      return `<span class="author-chip ${active}" data-author="${escapeHtml(author)}">${avatar}${escapeHtml(author)}</span>`;
+    }).join('');
+    authorChipsEl.querySelectorAll('.author-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const author = chip.dataset.author;
+        if (activeAuthorFilters.has(author)) activeAuthorFilters.delete(author);
+        else activeAuthorFilters.add(author);
+        localStorage.setItem(STORAGE_FILTER, JSON.stringify([...activeAuthorFilters]));
+        chip.classList.toggle('active');
+        render(snapshot, lastBadges);
+      });
+    });
+
+    repoChipsEl.innerHTML = sortedRepos.map(repo => {
+      const active = activeRepoFilters.has(repo) ? 'active' : '';
+      const shortName = repo.split('/').pop();
+      return `<span class="author-chip ${active}" data-repo="${escapeHtml(repo)}">${escapeHtml(shortName)}</span>`;
+    }).join('');
+    repoChipsEl.querySelectorAll('.author-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const repo = chip.dataset.repo;
+        if (activeRepoFilters.has(repo)) activeRepoFilters.delete(repo);
+        else activeRepoFilters.add(repo);
+        localStorage.setItem(STORAGE_REPO_FILTER, JSON.stringify([...activeRepoFilters]));
+        chip.classList.toggle('active');
+        render(snapshot, lastBadges);
+      });
+    });
+
+    $('teammates-filter').classList.toggle('active', teammatesFilterOn);
+    filtersEl.hidden = sortedAuthors.length === 0 && sortedRepos.length === 0;
+  }
+
+  $('teammates-filter').addEventListener('click', () => {
+    teammatesFilterOn = !teammatesFilterOn;
+    localStorage.setItem(STORAGE_TEAMMATES, teammatesFilterOn ? '1' : '');
+    $('teammates-filter').classList.toggle('active', teammatesFilterOn);
+    if (lastSnapshot) render(lastSnapshot, lastBadges);
+  });
+
+  $('clear-filter').addEventListener('click', () => {
+    activeAuthorFilters.clear();
+    activeRepoFilters.clear();
+    teammatesFilterOn = false;
+    localStorage.removeItem(STORAGE_FILTER);
+    localStorage.removeItem(STORAGE_REPO_FILTER);
+    localStorage.removeItem(STORAGE_TEAMMATES);
+    authorChipsEl.querySelectorAll('.author-chip').forEach(chip => chip.classList.remove('active'));
+    repoChipsEl.querySelectorAll('.author-chip').forEach(chip => chip.classList.remove('active'));
+    $('teammates-filter').classList.remove('active');
+    if (lastSnapshot) render(lastSnapshot, lastBadges);
+  });
+
+  // Collapsible section toggles (section-3b, section-archive)
+  document.querySelectorAll('section.collapsible > h2').forEach(h2 => {
+    h2.addEventListener('click', () => {
+      const section = h2.parentElement;
+      section.classList.toggle('collapsed');
+      const toggle = h2.querySelector('.toggle');
+      if (toggle) {
+        toggle.textContent = section.classList.contains('collapsed') ? '▸ expand' : '▾ collapse';
+      }
+    });
+  });
+
+  // Note delete — separate listener so it catches before the <a> link fires
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('.note-delete');
+    if (!btn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const prId = btn.dataset.prId;
+    if (!prId) return;
+    saveNote(prId, '');
+    render(lastSnapshot, lastBadges);
+  }, true); // capture phase so it fires before the link
+
+  // Card actions: archive / unarchive / note (event delegation)
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.card-action');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const action = button.dataset.action;
+    const prId = button.dataset.prId;
+    if (!prId) return;
+    if (action === 'note') {
+      openNoteEditor(prId, button);
+      return;
+    }
+    if (action === 'note-delete') {
+      saveNote(prId, '');
+      render(lastSnapshot, lastBadges);
+      return;
+    }
+    if (!lastSnapshot) return;
+    const pr = lastSnapshot.prs[prId];
+    if (!pr) return;
+    if (action === 'archive') archivePR(pr);
+    else if (action === 'delete') deletePR(pr);
+    else if (action === 'unarchive') unarchivePR(prId);
+    render(lastSnapshot, lastBadges);
+  });
+
+  function openNoteEditor(prId, triggerButton) {
+    // If an editor for this PR is already open, focus it.
+    const card = triggerButton.closest('a.card');
+    if (!card) return;
+    const existing = card.querySelector('.card-note-editor');
+    if (existing) { existing.focus(); return; }
+
+    // Remove any existing note display and replace with textarea.
+    const noteDisplay = card.querySelector('.card-note');
+    if (noteDisplay) noteDisplay.remove();
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'card-note-editor';
+    input.placeholder = 'Add a note… (Enter to save, Esc to cancel)';
+    input.value = getNote(prId);
+    card.appendChild(input);
+    input.focus();
+
+    function commit() {
+      saveNote(prId, input.value);
+      render(lastSnapshot, lastBadges);
+    }
+
+    function cancel() {
+      input.removeEventListener('blur', commit);
+      input.remove();
+      render(lastSnapshot, lastBadges);
+    }
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter') { input.blur(); }
+      if (evt.key === 'Escape') { cancel(); }
+    });
+    // Stop clicks inside the input from navigating to the PR link.
+    input.addEventListener('click', (evt) => evt.preventDefault());
+  }
+
+  // ---- Refresh flow ----
+  let lastSnapshot = null;
+  let lastBadges = {};
+
+  function setLastRefreshLabel() {
+    if (!lastSnapshotTimestamp) {
+      lastRefreshEl.textContent = '—';
+      return;
+    }
+    lastRefreshEl.textContent = `Last refreshed ${relativeTime(lastSnapshotTimestamp)}`;
+  }
+  setInterval(setLastRefreshLabel, 30000);
+
+  function showSummary(badges, prevTimestamp) {
+    const counts = { NEW: 0, ESCALATED: 0, UPDATED: 0, 'NEW-REVIEW': 0 };
+    for (const badge of Object.values(badges)) counts[badge] = (counts[badge] || 0) + 1;
+    const totalChanges = Object.values(counts).reduce((a, b) => a + b, 0);
+    const sinceLabel = prevTimestamp ? relativeTime(prevTimestamp) : 'first load';
+    if (totalChanges === 0) {
+      summaryEl.textContent = `No changes since last refresh (${sinceLabel}).`;
+      summaryEl.classList.remove('has-changes');
+    } else {
+      const parts = [];
+      if (counts.NEW) parts.push(`${counts.NEW} new`);
+      if (counts.ESCALATED) parts.push(`${counts.ESCALATED} escalated`);
+      if (counts.UPDATED) parts.push(`${counts.UPDATED} updated`);
+      if (counts['NEW-REVIEW']) parts.push(`${counts['NEW-REVIEW']} new review`);
+      summaryEl.textContent = `${totalChanges} change${totalChanges > 1 ? 's' : ''} since last refresh (${sinceLabel}): ${parts.join(', ')}.`;
+      summaryEl.classList.add('has-changes');
+    }
+    summaryEl.hidden = false;
+  }
+
+  async function refresh() {
+    const token = localStorage.getItem(STORAGE_TOKEN);
+    if (!token) {
+      showSetup();
+      return;
+    }
+
+    errorBar.hidden = true;
+    spinnerEl.classList.add('spinning');
+    $('refresh-btn').disabled = true;
+
+    try {
+      const prevSnapshotRaw = localStorage.getItem(STORAGE_SNAPSHOT);
+      const prevSnapshot = prevSnapshotRaw ? JSON.parse(prevSnapshotRaw) : null;
+      const fresh = await buildSnapshot(token, prevSnapshot);
+      const badges = diff(prevSnapshot, fresh);
+      lastSnapshot = fresh;
+      lastBadges = badges;
+      lastSnapshotTimestamp = fresh.timestamp;
+      localStorage.setItem(STORAGE_SNAPSHOT, JSON.stringify(fresh));
+      renderFilters(fresh);
+      render(fresh, badges);
+      showSummary(badges, prevSnapshot?.timestamp);
+      setLastRefreshLabel();
+    } catch (err) {
+      console.error(err);
+      if (err instanceof RateLimitError) {
+        rateLimitedUntilMs = err.resetMs;
+        const resetTime = new Date(err.resetMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        errorBar.innerHTML = `GitHub rate limit hit — auto-refresh paused until <strong>${escapeHtml(resetTime)}</strong>.`;
+        errorBar.hidden = false;
+        $('refresh-btn').disabled = true;
+        const msUntilReset = err.resetMs - Date.now();
+        setTimeout(() => {
+          rateLimitedUntilMs = 0;
+          $('refresh-btn').disabled = false;
+          errorBar.hidden = true;
+        }, msUntilReset);
+      } else {
+        errorBar.innerHTML = `Fetch failed: <code>${escapeHtml(err.message)}</code>. Token may be invalid — try Sign out and re-add.`;
+        errorBar.hidden = false;
+      }
+    } finally {
+      spinnerEl.classList.remove('spinning');
+      if (!rateLimitedUntilMs) $('refresh-btn').disabled = false;
+    }
+  }
+
+  $('refresh-btn').addEventListener('click', refresh);
+
+  // ---- Boot ----
+  function renderCachedIfAny() {
+    const cachedRaw = localStorage.getItem(STORAGE_SNAPSHOT);
+    if (!cachedRaw) return false;
+    try {
+      const cached = JSON.parse(cachedRaw);
+      lastSnapshot = cached;
+      lastBadges = {};
+      lastSnapshotTimestamp = cached.timestamp;
+      renderFilters(cached);
+      render(cached, {});
+      setLastRefreshLabel();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function boot() {
+    const token = localStorage.getItem(STORAGE_TOKEN);
+    if (!token) {
+      showSetup();
+      return;
+    }
+    hideSetup();
+    renderCachedIfAny(); // instant paint from previous snapshot
+    refresh();           // then refresh in the background
+    setInterval(() => { if (Date.now() >= rateLimitedUntilMs) refresh(); }, AUTO_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() < rateLimitedUntilMs) return;
+      const age = lastSnapshotTimestamp ? Date.now() - new Date(lastSnapshotTimestamp).getTime() : Infinity;
+      if (age > AUTO_REFRESH_MS) refresh();
+    });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
