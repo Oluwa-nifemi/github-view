@@ -1219,6 +1219,24 @@
       };
     }
 
+    // Claudette-authored PRs assigned to a teammate also belong in section 7.
+    // GitHub rejects `author:Claudette2-0` in search, so we search by
+    // `assignee:<teammate>` across all teammates and filter for Claudette authorship.
+    const claudetteAssignedToTeammate = await searchByTeammates('assignee', teammateLogins, token, `updated:>=${fourteenDaysAgo}`)
+      .catch(err => { console.warn('claudette assignee fetch failed:', err); return []; });
+    for (const item of claudetteAssignedToTeammate) {
+      if (item.user?.login !== 'Claudette2-0') continue;
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      const prId = `${repo}#${item.number}`;
+      if (prs[prId]) continue; // already covered by an earlier section
+      prs[prId] = {
+        ...buildPRBase(prId, repo, 7, item, null),
+        authorIsTeammate: false,
+        reviews: [],
+      };
+    }
+
     return { prs, timestamp: new Date().toISOString() };
   }
 
