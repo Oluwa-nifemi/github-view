@@ -125,6 +125,17 @@
     border-radius: 6px;
   }
   .filters label { font-size: 13px; color: var(--muted); margin-right: 4px; }
+  .author-search {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    width: 130px;
+  }
+  .author-search:focus { outline: none; border-color: var(--accent); }
+  .author-chip.search-hidden { display: none; }
   .author-chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .author-chip {
     padding: 4px 10px;
@@ -403,6 +414,7 @@
 
   <div class="filters" id="filters" hidden>
     <label>Author:</label>
+    <input id="author-search" class="author-search" type="text" placeholder="type to filter…" autocomplete="off">
     <div id="author-chips" class="author-chips"></div>
     <button id="teammates-filter">Teammates only</button>
     <label>Repo:</label>
@@ -505,6 +517,7 @@
   const errorBar = $('error-bar');
   const filtersEl = $('filters');
   const authorChipsEl = $('author-chips');
+  const authorSearchEl = $('author-search');
   const repoChipsEl = $('repo-chips');
   const lastRefreshEl = $('last-refresh');
   const spinnerEl = $('spinner');
@@ -1533,6 +1546,7 @@
 
     $('teammates-filter').classList.toggle('active', teammatesFilterOn);
     filtersEl.hidden = sortedAuthors.length === 0 && sortedRepos.length === 0;
+    filterAuthorChips();
   }
 
   $('teammates-filter').addEventListener('click', () => {
@@ -1552,7 +1566,38 @@
     authorChipsEl.querySelectorAll('.author-chip').forEach(chip => chip.classList.remove('active'));
     repoChipsEl.querySelectorAll('.author-chip').forEach(chip => chip.classList.remove('active'));
     $('teammates-filter').classList.remove('active');
+    authorSearchEl.value = '';
+    filterAuthorChips();
     if (lastSnapshot) render(lastSnapshot, lastBadges);
+  });
+
+  // Live substring filter over the author chips. Active chips stay visible
+  // regardless of the query so the current selection is never hidden.
+  function filterAuthorChips() {
+    const query = authorSearchEl.value.trim().toLowerCase();
+    authorChipsEl.querySelectorAll('.author-chip').forEach(chip => {
+      const visible = !query
+        || chip.classList.contains('active')
+        || chip.dataset.author.toLowerCase().includes(query);
+      chip.classList.toggle('search-hidden', !visible);
+    });
+  }
+  authorSearchEl.addEventListener('input', filterAuthorChips);
+
+  // Start typing anywhere and the author search grabs focus so the keystroke
+  // lands there — no need to click the input first.
+  document.addEventListener('keydown', (e) => {
+    if (filtersEl.hidden) return;
+    if (e.key === 'Escape') {
+      $('clear-filter').click();
+      authorSearchEl.blur();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key.length !== 1) return; // ignore Enter, Tab, arrows, etc.
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+    authorSearchEl.focus();
   });
 
   // Collapsible section toggles (section-3b, section-archive)
