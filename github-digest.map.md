@@ -94,6 +94,7 @@ youReviewed, teammateReviewers
 - `gh_digest_last_snapshot` — full snapshot for diffing + cache fast-paths
 - `gh_digest_filter_authors`, `gh_digest_filter_repos`, `gh_digest_teammates` — filter state
 - `gh_digest_archived` — archive/delete map
+- `gh_digest_promoted` — set of PR ids manually pinned to section 1
 - `gh_digest_team_members` — `{members, fetchedAt}`, 24h TTL
 
 ## Editing tips

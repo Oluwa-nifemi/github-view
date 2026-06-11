@@ -221,6 +221,8 @@
   .card.stale:hover { opacity: 1; }
   .card.archived { opacity: 0.4; background: var(--bg); }
   .card.archived:hover { opacity: 1; }
+  .card.is-promoted { border-left: 3px dashed var(--muted); padding-left: 11px; }
+  .card-action.promote.pinned { opacity: 0.8; }
 
   .card-corner {
     position: absolute;
@@ -504,6 +506,7 @@
   const STORAGE_TEAMMATES = 'gh_digest_teammates';
   const STORAGE_ARCHIVED = 'gh_digest_archived';
   const STORAGE_NOTES = 'gh_digest_notes';
+  const STORAGE_PROMOTED = 'gh_digest_promoted';
   const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
   const TEAMMATES_TTL_MS = 24 * 60 * 60 * 1000;
   const AUTO_REFRESH_MS = 3 * 60 * 1000;
@@ -531,6 +534,7 @@
   let activeRepoFilters = new Set(JSON.parse(localStorage.getItem(STORAGE_REPO_FILTER) || '[]'));
   let teammatesFilterOn = localStorage.getItem(STORAGE_TEAMMATES) === '1';
   let archivedPRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED) || '{}');
+  let promotedPRs = new Set(JSON.parse(localStorage.getItem(STORAGE_PROMOTED) || '[]'));
 
   function persistArchived() {
     localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(archivedPRs));
@@ -575,6 +579,13 @@
     delete archivedPRs[prId];
     persistArchived();
   }
+
+  function persistPromoted() {
+    localStorage.setItem(STORAGE_PROMOTED, JSON.stringify([...promotedPRs]));
+  }
+  function isPromoted(pr) { return promotedPRs.has(pr.id); }
+  function promotePR(prId) { promotedPRs.add(prId); persistPromoted(); }
+  function demotePR(prId) { promotedPRs.delete(prId); persistPromoted(); }
 
   // ---- Notes ----
   let prNotes = JSON.parse(localStorage.getItem(STORAGE_NOTES) || '{}');
@@ -1334,7 +1345,7 @@
     return chips.length ? `<span class="chips">${chips.join('')}</span>` : '';
   }
 
-  function renderCard(pr, badge, archived) {
+  function renderCard(pr, badge, archived, promoted) {
     const ageSrc = pr.updatedAt || pr.createdAt;
     const deleted = isDeleted(pr);
     const badgeHtml = badge ? `<span class="badge ${badge}">${badge.replace('-', ' ')}</span>` : '';
@@ -1349,6 +1360,14 @@
     else if (pr.isDraft) classes.push('is-draft');
     if (isStale(pr) && !badge) classes.push('stale');
     if (archived) classes.push('archived');
+    if (promoted) classes.push('is-promoted');
+    const promoteHtml = !deleted && !archived
+      ? promoted
+        ? `<button class="card-action promote pinned" data-action="demote" data-pr-id="${escapeHtml(pr.id)}" title="Unpin from Needs Your Attention" aria-label="Unpin from Needs Your Attention">📌</button>`
+        : pr.section !== 1 && pr.section !== 2
+          ? `<button class="card-action promote" data-action="promote" data-pr-id="${escapeHtml(pr.id)}" title="Pin to Needs Your Attention" aria-label="Pin to Needs Your Attention">📌</button>`
+          : ''
+      : '';
     const actionHtml = deleted
       ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Restore" aria-label="Restore">↺</button>`
       : archived
@@ -1365,6 +1384,7 @@
         <div class="card-corner">
           ${badgeHtml}
           <button class="${noteButtonClass}" data-action="note" data-pr-id="${escapeHtml(pr.id)}" title="Add note" aria-label="Add note">✎</button>
+          ${promoteHtml}
           ${actionHtml}
         </div>
         <div class="card-title">${escapeHtml(pr.title)}</div>
@@ -1415,7 +1435,7 @@
     sectionEl.querySelector('.count').textContent = list.length;
     cardsEl.innerHTML = list.length === 0
       ? ''
-      : list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr))).join('');
+      : list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr))).join('');
   }
 
   function render(snapshot, badges) {
@@ -1441,6 +1461,10 @@
       }
       if (isArchived(pr)) {
         buckets.archived.push(pr);
+        continue;
+      }
+      if (isPromoted(pr) && pr.section !== 1 && pr.section !== 2) {
+        buckets.direct.push(pr);
         continue;
       }
       switch (pr.section) {
@@ -1493,7 +1517,7 @@
         sub.style.display = 'none';
       } else {
         sub.style.display = '';
-        body.innerHTML = list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr))).join('');
+        body.innerHTML = list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr))).join('');
       }
     }
     // (no empty-state text — the count badge in the header already reads "0")
@@ -1648,6 +1672,8 @@
     if (action === 'archive') archivePR(pr);
     else if (action === 'delete') deletePR(pr);
     else if (action === 'unarchive') unarchivePR(prId);
+    else if (action === 'promote') promotePR(prId);
+    else if (action === 'demote') demotePR(prId);
     render(lastSnapshot, lastBadges);
   });
 
