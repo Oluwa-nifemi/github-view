@@ -38,14 +38,14 @@ Top-level constants then functional blocks in order:
 
 | Block | Purpose |
 |---|---|
-| Config consts (`USERNAME`, `ORG`, `TEAM`, `STORAGE_*`, `STALE_DAYS`, `TEAMMATES_TTL_MS`, `AUTO_REFRESH_MS`) | All `localStorage` keys live here; `AUTO_REFRESH_MS` = 3 min, controls both `setInterval` and visibility-change guard |
+| Config consts (`USERNAME`, `ORG`, `TEAM`, `EXTRA_TEAMMATES`, `STORAGE_*`, `STALE_DAYS`, `TEAMMATES_TTL_MS`, `AUTO_REFRESH_MS`) | All `localStorage` keys live here; `AUTO_REFRESH_MS` = 3 min, controls both `setInterval` and visibility-change guard; `EXTRA_TEAMMATES` = logins treated as teammates beyond the GitHub team roster |
 | DOM `$` helpers | element refs |
 | State vars | `teammates`, filters, `archivedPRs`, `rateLimitedUntilMs`, `etagCache` (in-memory Map: url → `{etag, data}`) |
 | `archivedPRs` helpers — `isArchived`, `isDeleted`, `archivePR`, `deletePR`, `unarchivePR`, `persistArchived` | Archive entries: `{archivedAt, signature, deleted?, deletedAt?}`. Auto-resurface when `pr.updatedAt !== entry.signature`, unless `deleted: true`. |
 | `isStale` | >30 days since update |
 | Token setup — `showSetup` / `hideSetup`, `#token-save`, `#logout-btn` handlers | Validates token against `/user`, requires login matches `USERNAME` |
 | GitHub fetch — `ghFetch`, `ghJson`, `search`, `ghGraphQL`, `searchByTeammates`, `repoFromIssue` | `ghJson` sends `If-None-Match` from `etagCache`, handles 304 (free request), caches new ETags on 200. Throws `RateLimitError` on 403/429 with `X-RateLimit-Remaining: 0`. `ghGraphQL` posts to the GraphQL endpoint. `searchByTeammates(qualifier, logins, token, extraQ?)` issues a single GraphQL search ORing multiple `author:` or `review-requested:` qualifiers — replaces N parallel REST searches. |
-| `getTeammates(token)` | 24h-cached `/orgs/{ORG}/teams/{TEAM}/members` |
+| `getTeammates(token)` | 24h-cached `/orgs/{ORG}/teams/{TEAM}/members`, unioned with `EXTRA_TEAMMATES` on every path (cache hit, fresh fetch, fetch failure) |
 | `parsePRFromNotification`, `fetchRelevantNotifications` | Used to find PRs the team already handled (catches PRs no longer in your review-requested list) |
 | **PR enrichment helpers** | `normalizeReviews(rawReviews)` → `{user,state,submittedAt}[]`. `latestNonCommentReviewsByReviewer(reviews, authorLogin, pendingLogins)` → Map used by `classifyMyPR` + `reviewChips`. `applyCachedPR(cached, title)` → fast-path spread for all sections. `buildPRBase(prId, repo, section, item, prDetail)` → common PR object fields (pass null for item in s5, null for prDetail in s7). |
 | **`buildSnapshot(token, cachedSnapshot)`** — the big one | Runs the 4 searches in parallel, then enriches per section. Each section has a cache fast-path keyed on `updated_at`. Section-specific fields are spread on top of `buildPRBase`. |
