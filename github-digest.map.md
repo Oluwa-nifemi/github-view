@@ -52,7 +52,7 @@ Top-level constants then functional blocks in order:
 | └─ Section 1/3 enrichment | review-requested PRs → fetches reviews + requested_reviewers + prDetail. Section 1 = direct (sets `reviewedBefore` if you've already submitted a review), 3 = team-requested. Records `isDraft`. (Section 2 was merged into 1; `case 2` in render still maps to the direct bucket for old cached snapshots.) |
 | └─ `checkCi(repo, sha)` | Dedupe check-runs by `(app.id, name)`, take latest; fail if any failure/timed_out/action_required, or any failing status. |
 | └─ Section 4 enrichment | your authored + assigned PRs. Captures `headSha`, `ciFailing`, `isDraft`, **`pendingReviewers`** (count of `requested_reviewers` + `requested_teams` still outstanding — used by `classifyMyPR` to gate "approved"). CI re-checked every refresh even when cached. |
-| └─ Section 5 (Team Handled) | PRs from notifications not covered above; tracks `youReviewed` and `teammateReviewers`. |
+| └─ Section 5 (Team Handled) | PRs from notifications not covered above; tracks `youReviewed` and `teammateReviewers`. **If you already reviewed and `prDetail.updated_at` is newer than your last review, the PR is routed back to Team Requests (section 3) instead** — "changed since you touched it", no explicit re-review needed. |
 | └─ Section 6 (Engaged) | `commenter:` search, last 30 days. |
 | └─ Section 7 (Teammates' Open) | single GraphQL search across all teammate logins (`author:` ORed), last 14 days, no per-PR enrichment. |
 | `diff(oldSnap, newSnap)` | Returns badges map: `NEW`, `ESCALATED` (3→1), `UPDATED` (section 1 + `reviewedBefore` + `updatedAt` changed), `NEW-REVIEW` (section 4, new non-author review). |

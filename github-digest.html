@@ -1175,6 +1175,29 @@
             .map(r => r.user.login)
         )];
 
+        // If you already reviewed and the PR has had activity since your last
+        // review, it has changed since you touched it — surface it back as a team
+        // request even though no explicit re-review was asked for.
+        const lastUserReviewAt = reviews
+          .filter(r => r.user?.login === USERNAME && r.submitted_at)
+          .map(r => r.submitted_at)
+          .sort()
+          .pop() || null;
+        const changedSinceTouched = youReviewed && lastUserReviewAt
+          && new Date(prDetail.updated_at) > new Date(lastUserReviewAt);
+
+        if (changedSinceTouched) {
+          prs[prId] = {
+            ...buildPRBase(prId, repo, 3, null, prDetail),
+            isDirect: false,
+            isTeam: false,
+            lastUserReviewAt,
+            reviewedBefore: true,
+            reviews: normalizeReviews(reviews),
+          };
+          return;
+        }
+
         prs[prId] = {
           ...buildPRBase(prId, repo, 5, null, prDetail),
           youReviewed,
