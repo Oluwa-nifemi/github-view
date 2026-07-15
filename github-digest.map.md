@@ -49,7 +49,7 @@ Top-level constants then functional blocks in order:
 | `parsePRFromNotification`, `fetchRelevantNotifications` | Used to find PRs the team already handled (catches PRs no longer in your review-requested list) |
 | **PR enrichment helpers** | `normalizeReviews(rawReviews)` → `{user,state,submittedAt}[]`. `latestNonCommentReviewsByReviewer(reviews, authorLogin, pendingLogins)` → Map used by `classifyMyPR` + `reviewChips`. `applyCachedPR(cached, title)` → fast-path spread for all sections. `buildPRBase(prId, repo, section, item, prDetail)` → common PR object fields (pass null for item in s5, null for prDetail in s7). |
 | **`buildSnapshot(token, cachedSnapshot)`** — the big one | Runs the 4 searches in parallel, then enriches per section. Each section has a cache fast-path keyed on `updated_at`. Section-specific fields are spread on top of `buildPRBase`. |
-| └─ Section 1/3 enrichment | review-requested PRs → fetches reviews + requested_reviewers + prDetail. Section 1 = direct (sets `reviewedBefore` if you've already submitted a review), 3 = team-requested. Records `isDraft`. (Section 2 was merged into 1; `case 2` in render still maps to the direct bucket for old cached snapshots.) |
+| └─ Section 1/3 enrichment | review-requested PRs → fetches reviews + requested_reviewers + prDetail + `comments` (merged issue comments + PR review comments, `{user, createdAt}[]`). Section 1 = direct (sets `reviewedBefore` if you've already submitted a formal — non-comment-only — review), 3 = team-requested. Records `isDraft`. `diff` badges `UPDATED` on any new non-you comment for both sections, independent of `reviewedBefore`. (Section 2 was merged into 1; `case 2` in render still maps to the direct bucket for old cached snapshots.) |
 | └─ `checkCi(repo, sha)` | Dedupe check-runs by `(app.id, name)`, take latest; fail if any failure/timed_out/action_required, or any failing status. |
 | └─ Section 4 enrichment | your authored + assigned PRs. Captures `headSha`, `ciFailing`, `isDraft`, **`pendingReviewers`** (count of `requested_reviewers` + `requested_teams` still outstanding — used by `classifyMyPR` to gate "approved"), and `comments` (merged issue comments + PR review comments, `{user, createdAt}[]`, used by `diff` to badge new non-author comments as `UPDATED`). CI re-checked every refresh even when cached. |
 | └─ Section 5 (Team Handled) | PRs from notifications not covered above; tracks `youReviewed` and `teammateReviewers`. **If you already reviewed and `prDetail.updated_at` is newer than your last review, the PR is routed back to Team Requests (section 3) instead** — "changed since you touched it", no explicit re-review needed. |
@@ -77,7 +77,7 @@ section       1|2|3|4|5|6|7
 isDraft       bool
 reviews       [{user, state, submittedAt}]
 // section 1/2/3
-isDirect, isTeam, lastUserReviewAt
+isDirect, isTeam, lastUserReviewAt, comments
 // section 4
 headSha, ciFailing, pendingReviewers, comments
 // section 5

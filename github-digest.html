@@ -948,17 +948,23 @@
       );
       const cachedUserReviewed = cached && (cached.reviews || []).some(r => r.user === USERNAME);
       const needsRerouteRecheck = cachedTeammateApproved && !cachedUserReviewed && cached.section !== 5;
-      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
 
       try {
-        const [reviews, requested, prDetail] = await Promise.all([
+        const [reviews, requested, prDetail, issueComments, reviewComments] = await Promise.all([
           ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
           ghJson(`/repos/${repo}/pulls/${item.number}/requested_reviewers`, token),
           ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+          ghJson(`/repos/${repo}/issues/${item.number}/comments?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}/comments?per_page=100`, token),
         ]);
+        const comments = [...issueComments, ...reviewComments].map(c => ({
+          user: c.user?.login,
+          createdAt: c.created_at,
+        }));
         const isDirect = (requested.users || []).some(u => u.login === USERNAME);
         const isTeam = (requested.teams || []).length > 0;
         const userReviews = reviews
@@ -1002,6 +1008,7 @@
           lastUserReviewAt: lastUserReview?.submitted_at || null,
           reviewedBefore: !!lastUserReview,
           reviews: normalizeReviews(reviews),
+          comments,
         };
       } catch (err) {
         console.warn(`enrich failed for ${prId}:`, err);
@@ -1311,6 +1318,12 @@
         else badges[prId] = 'NEW';
       } else if (pr.section === 1 && pr.reviewedBefore && old.updatedAt !== pr.updatedAt) {
         badges[prId] = 'UPDATED';
+      } else if ([1, 3].includes(pr.section)) {
+        const oldCommentKeys = new Set((old.comments || []).map(c => `${c.user}:${c.createdAt}`));
+        const newComment = (pr.comments || []).find(c =>
+          !oldCommentKeys.has(`${c.user}:${c.createdAt}`) && c.user !== USERNAME
+        );
+        if (newComment) badges[prId] = 'UPDATED';
       } else if (pr.section === 4) {
         const oldReviewKeys = new Set((old.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
         const newReview = (pr.reviews || []).find(r =>
