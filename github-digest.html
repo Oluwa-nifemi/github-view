@@ -1086,19 +1086,21 @@
       if (!repo) return;
       const prId = `${repo}#${item.number}`;
 
-      // Cache fast-path: if updated_at hasn't bumped, reviews + head SHA unchanged.
+      // Cache fast-path: if updated_at hasn't bumped, reviews + comments + head SHA unchanged.
       // CI can change independently though — always re-check.
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined) {
         const ciFailing = await checkCi(repo, cached.headSha);
         prs[prId] = { ...cached, title: item.title, ciFailing, isDraft: !!item.draft };
         return;
       }
 
       try {
-        const [reviews, prDetail] = await Promise.all([
+        const [reviews, prDetail, issueComments, reviewComments] = await Promise.all([
           ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
           ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+          ghJson(`/repos/${repo}/issues/${item.number}/comments?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}/comments?per_page=100`, token),
         ]);
         const sha = prDetail.head?.sha;
         const ciFailing = await checkCi(repo, sha);
@@ -1106,12 +1108,17 @@
         const pendingReviewers =
           pendingReviewerLogins.length +
           (prDetail.requested_teams || []).length;
+        const comments = [...issueComments, ...reviewComments].map(c => ({
+          user: c.user?.login,
+          createdAt: c.created_at,
+        }));
         prs[prId] = {
           ...buildPRBase(prId, repo, 4, item, prDetail),
           headSha: sha,
           pendingReviewers,
           pendingReviewerLogins,
           reviews: normalizeReviews(reviews),
+          comments,
           ciFailing,
         };
       } catch (err) {
@@ -1305,11 +1312,16 @@
       } else if (pr.section === 1 && pr.reviewedBefore && old.updatedAt !== pr.updatedAt) {
         badges[prId] = 'UPDATED';
       } else if (pr.section === 4) {
-        const oldKeys = new Set((old.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
+        const oldReviewKeys = new Set((old.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
         const newReview = (pr.reviews || []).find(r =>
-          !oldKeys.has(`${r.user}:${r.submittedAt}`) && r.user !== pr.author
+          !oldReviewKeys.has(`${r.user}:${r.submittedAt}`) && r.user !== pr.author
+        );
+        const oldCommentKeys = new Set((old.comments || []).map(c => `${c.user}:${c.createdAt}`));
+        const newComment = (pr.comments || []).find(c =>
+          !oldCommentKeys.has(`${c.user}:${c.createdAt}`) && c.user !== pr.author
         );
         if (newReview) badges[prId] = 'NEW-REVIEW';
+        else if (newComment) badges[prId] = 'UPDATED';
       }
     }
 
