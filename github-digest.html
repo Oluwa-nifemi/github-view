@@ -199,6 +199,27 @@
     margin: 12px 8px 6px;
   }
   .subgroup:first-child h3 { margin-top: 4px; }
+  .my-archive-group { margin: 12px 8px 6px; }
+  .my-archive-group summary {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .my-archive-group summary .count {
+    margin-left: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+  }
+  .my-archive-group .subgroup-body { margin-top: 6px; }
 
   .card {
     position: relative;
@@ -214,13 +235,14 @@
   }
   .card:hover { background: var(--hover); }
   .card.is-new { border-left: 3px solid var(--green); padding-left: 11px; }
-  .card.is-escalated { border-left: 3px solid var(--red); padding-left: 11px; }
   .card.is-updated { border-left: 3px solid var(--orange); padding-left: 11px; }
   .card.is-new-review { border-left: 3px solid var(--accent); padding-left: 11px; }
   .card.stale { opacity: 0.4; }
   .card.stale:hover { opacity: 1; }
   .card.archived { opacity: 0.4; background: var(--bg); }
   .card.archived:hover { opacity: 1; }
+  .card.archived-mine { opacity: 0.55; background: var(--bg); }
+  .card.archived-mine:hover { opacity: 1; }
   .card.is-promoted { border-left: 3px dashed var(--muted); padding-left: 11px; }
   .card-action.promote.pinned { opacity: 0.8; }
 
@@ -252,6 +274,7 @@
   .card:hover .card-action { opacity: 0.7; }
   .card-action:hover { opacity: 1 !important; background: var(--bg); border-color: var(--border); color: var(--text); }
   .card-action.unarchive { opacity: 1; color: var(--accent); }
+  .card-action.unstash { opacity: 1; color: var(--accent); }
   .card-action.has-note { opacity: 0.9; color: var(--accent); }
   .card:hover .card-action.has-note { opacity: 1; }
 
@@ -325,6 +348,7 @@
   .chip.draft { color: var(--muted); border-color: var(--muted); font-weight: 600; }
   .chip.pending { color: var(--yellow); border-color: var(--yellow); }
   .chip.reviewed { color: var(--accent); border-color: var(--accent); }
+  .chip.personal { color: var(--red); border-color: var(--red); }
   .card.is-draft { opacity: 0.8; }
   .card.is-draft:hover { opacity: 1; }
 
@@ -337,7 +361,6 @@
     text-transform: uppercase;
   }
   .badge.NEW { background: var(--green); color: white; }
-  .badge.ESCALATED { background: var(--red); color: white; }
   .badge.UPDATED { background: var(--orange); color: white; }
   .badge.NEW-REVIEW { background: var(--accent); color: white; }
 
@@ -424,9 +447,14 @@
     <button id="clear-filter">Clear</button>
   </div>
 
-  <section class="section" id="section-1">
-    <h2><span>🔴</span> Needs Your Attention <span class="count">0</span></h2>
-    <div class="cards" data-section="1"></div>
+  <section class="section" id="section-3">
+    <h2><span>🟡</span> Team Requests — Teammates <span class="count">0</span></h2>
+    <div class="cards" data-section="3"></div>
+  </section>
+
+  <section class="section collapsible" id="section-3b">
+    <h2><span>⚪</span> Team Requests — Others <span class="count">0</span><span class="toggle">▾ collapse</span></h2>
+    <div class="cards" data-section="3b"></div>
   </section>
 
   <section class="section collapsible collapsed" id="section-4">
@@ -448,17 +476,11 @@
         <h3>⏳ Awaiting review</h3>
         <div class="subgroup-body"></div>
       </div>
+      <details class="my-archive-group">
+        <summary>🗄 Set aside <span class="count">0</span></summary>
+        <div class="subgroup-body"></div>
+      </details>
     </div>
-  </section>
-
-  <section class="section" id="section-3">
-    <h2><span>🟡</span> Team Requests — Teammates <span class="count">0</span></h2>
-    <div class="cards" data-section="3"></div>
-  </section>
-
-  <section class="section collapsible" id="section-3b">
-    <h2><span>⚪</span> Team Requests — Others <span class="count">0</span><span class="toggle">▾ collapse</span></h2>
-    <div class="cards" data-section="3b"></div>
   </section>
 
   <section class="section collapsible" id="section-team-handled">
@@ -506,6 +528,7 @@
   const STORAGE_REPO_FILTER = 'gh_digest_filter_repos';
   const STORAGE_TEAMMATES = 'gh_digest_teammates';
   const STORAGE_ARCHIVED = 'gh_digest_archived';
+  const STORAGE_ARCHIVED_MINE = 'gh_digest_archived_mine';
   const STORAGE_NOTES = 'gh_digest_notes';
   const STORAGE_PROMOTED = 'gh_digest_promoted';
   const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
@@ -535,6 +558,7 @@
   let activeRepoFilters = new Set(JSON.parse(localStorage.getItem(STORAGE_REPO_FILTER) || '[]'));
   let teammatesFilterOn = localStorage.getItem(STORAGE_TEAMMATES) === '1';
   let archivedPRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED) || '{}');
+  let archivedMinePRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED_MINE) || '{}');
   let promotedPRs = new Set(JSON.parse(localStorage.getItem(STORAGE_PROMOTED) || '[]'));
 
   function persistArchived() {
@@ -579,6 +603,19 @@
   function unarchivePR(prId) {
     delete archivedPRs[prId];
     persistArchived();
+  }
+
+  function persistArchivedMine() {
+    localStorage.setItem(STORAGE_ARCHIVED_MINE, JSON.stringify(archivedMinePRs));
+  }
+  function isArchivedMine(pr) { return !!archivedMinePRs[pr.id]; }
+  function archiveMinePR(pr) {
+    archivedMinePRs[pr.id] = { archivedAt: new Date().toISOString() };
+    persistArchivedMine();
+  }
+  function unarchiveMinePR(prId) {
+    delete archivedMinePRs[prId];
+    persistArchivedMine();
   }
 
   function persistPromoted() {
@@ -890,9 +927,9 @@
     ]);
 
     // Merge team-review-requested results into reviewItems (dedupe by PR id).
-    // Teammate-authored PRs are kept here: a direct request lands in section 1,
-    // a team request in section 3 (teamTeammates). Section 7's dedup skips anything
-    // already classified, so they won't double-appear under "Teammates' Open PRs".
+    // Teammate-authored PRs are kept here: both direct and team review requests
+    // land in section 3 (isDirect just adds a label). Section 7's dedup skips
+    // anything already classified, so they won't double-appear under "Teammates' Open PRs".
     const reviewItemsMap = new Map();
     for (const item of [...reviewItems, ...teamReviewItems]) {
       const repo = repoFromIssue(item);
@@ -988,15 +1025,11 @@
           .map(r => r.user.login);
         const teammateCovered = teammateApprovers.length > 0
           && ![...latestTeammateReviews.values()].some(r => r.state === 'CHANGES_REQUESTED');
-        let section;
-        if (teammateCovered && !lastUserReview) {
-          // A teammate already approved and you haven't weighed in — treat as handled
-          section = 5;
-        } else if (isDirect) {
-          section = 1;
-        } else {
-          section = 3;
-        }
+        // Personal ("isDirect") review requests no longer get their own section —
+        // they render inside Team Requests with a label (see reviewChips).
+        const section = (teammateCovered && !lastUserReview)
+          ? 5 // a teammate already approved and you haven't weighed in — treat as handled
+          : 3;
         prs[prId] = {
           ...buildPRBase(prId, repo, section, item, prDetail),
           isDirect,
@@ -1165,7 +1198,7 @@
         if (teamStillRequested || isDirect) {
           const reviews = await ghJson(`/repos/${repo}/pulls/${number}/reviews?per_page=100`, token);
           prs[prId] = {
-            ...buildPRBase(prId, repo, isDirect ? 1 : 3, null, prDetail),
+            ...buildPRBase(prId, repo, 3, null, prDetail),
             isDirect,
             isTeam: teamStillRequested,
             lastUserReviewAt: null,
@@ -1314,11 +1347,10 @@
       if (!old) {
         badges[prId] = 'NEW';
       } else if (old.section !== pr.section) {
-        if (pr.section === 1 && old.section === 3) badges[prId] = 'ESCALATED';
-        else badges[prId] = 'NEW';
-      } else if (pr.section === 1 && pr.reviewedBefore && old.updatedAt !== pr.updatedAt) {
+        badges[prId] = 'NEW';
+      } else if (pr.isDirect && pr.reviewedBefore && old.updatedAt !== pr.updatedAt) {
         badges[prId] = 'UPDATED';
-      } else if ([1, 3].includes(pr.section)) {
+      } else if (pr.section === 3) {
         const oldCommentKeys = new Set((old.comments || []).map(c => `${c.user}:${c.createdAt}`));
         const newComment = (pr.comments || []).find(c =>
           !oldCommentKeys.has(`${c.user}:${c.createdAt}`) && c.user !== USERNAME
@@ -1383,7 +1415,8 @@
         chips.push(`<span class="chip team-handled">handled by @${escapeHtml(first)}${extra}</span>`);
       }
     }
-    if (pr.section === 1 && pr.reviewedBefore) chips.push(`<span class="chip reviewed">👁 reviewed before</span>`);
+    if (pr.isDirect && pr.reviewedBefore) chips.push(`<span class="chip reviewed">👁 reviewed before</span>`);
+    else if (pr.isDirect) chips.push(`<span class="chip personal">👤 requested you</span>`);
     if (pr.isDraft) chips.push(`<span class="chip draft">DRAFT</span>`);
     if (approvals > 0) chips.push(`<span class="chip approved">✓ ${approvals}</span>`);
     if (changes > 0) chips.push(`<span class="chip changes">⚠ ${changes}</span>`);
@@ -1394,7 +1427,7 @@
     return chips.length ? `<span class="chips">${chips.join('')}</span>` : '';
   }
 
-  function renderCard(pr, badge, archived, promoted) {
+  function renderCard(pr, badge, archived, promoted, archivedMine) {
     const ageSrc = pr.updatedAt || pr.createdAt;
     const deleted = isDeleted(pr);
     const badgeHtml = badge ? `<span class="badge ${badge}">${badge.replace('-', ' ')}</span>` : '';
@@ -1403,19 +1436,17 @@
       : '';
     const classes = ['card'];
     if (badge === 'NEW') classes.push('is-new');
-    else if (badge === 'ESCALATED') classes.push('is-escalated');
     else if (badge === 'UPDATED') classes.push('is-updated');
     else if (badge === 'NEW-REVIEW') classes.push('is-new-review');
     else if (pr.isDraft) classes.push('is-draft');
     if (isStale(pr) && !badge) classes.push('stale');
     if (archived) classes.push('archived');
+    if (archivedMine) classes.push('archived-mine');
     if (promoted) classes.push('is-promoted');
     const promoteHtml = !deleted && !archived
       ? promoted
-        ? `<button class="card-action promote pinned" data-action="demote" data-pr-id="${escapeHtml(pr.id)}" title="Unpin from Needs Your Attention" aria-label="Unpin from Needs Your Attention">📌</button>`
-        : pr.section !== 1 && pr.section !== 2
-          ? `<button class="card-action promote" data-action="promote" data-pr-id="${escapeHtml(pr.id)}" title="Pin to Needs Your Attention" aria-label="Pin to Needs Your Attention">📌</button>`
-          : ''
+        ? `<button class="card-action promote pinned" data-action="demote" data-pr-id="${escapeHtml(pr.id)}" title="Unpin from Team Requests" aria-label="Unpin from Team Requests">📌</button>`
+        : `<button class="card-action promote" data-action="promote" data-pr-id="${escapeHtml(pr.id)}" title="Pin to top of Team Requests" aria-label="Pin to top of Team Requests">📌</button>`
       : '';
     const actionHtml = deleted
       ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Restore" aria-label="Restore">↺</button>`
@@ -1423,6 +1454,11 @@
       ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Unarchive" aria-label="Unarchive">↺</button>
          <button class="card-action archive" data-action="delete" data-pr-id="${escapeHtml(pr.id)}" title="Delete permanently" aria-label="Delete permanently">🗑</button>`
       : `<button class="card-action archive" data-action="archive" data-pr-id="${escapeHtml(pr.id)}" title="Archive" aria-label="Archive">×</button>`;
+    const stashHtml = pr.section === 4 && !deleted && !archived
+      ? archivedMine
+        ? `<button class="card-action unstash" data-action="unstash-mine" data-pr-id="${escapeHtml(pr.id)}" title="Move back to active list" aria-label="Move back to active list">↺</button>`
+        : `<button class="card-action stash" data-action="stash-mine" data-pr-id="${escapeHtml(pr.id)}" title="Set aside for later" aria-label="Set aside for later">🗄</button>`
+      : '';
     const existingNote = getNote(pr.id);
     const noteButtonClass = `card-action note-btn${existingNote ? ' has-note' : ''}`;
     const noteHtml = existingNote
@@ -1434,6 +1470,7 @@
           ${badgeHtml}
           <button class="${noteButtonClass}" data-action="note" data-pr-id="${escapeHtml(pr.id)}" title="Add note" aria-label="Add note">✎</button>
           ${promoteHtml}
+          ${stashHtml}
           ${actionHtml}
         </div>
         <div class="card-title">${escapeHtml(pr.title)}</div>
@@ -1491,7 +1528,6 @@
     const prs = applyFilter(snapshot.prs);
 
     const buckets = {
-      direct: [],
       teamTeammates: [],
       teamOthers: [],
       teamHandled: [],
@@ -1512,13 +1548,15 @@
         buckets.archived.push(pr);
         continue;
       }
-      if (isPromoted(pr) && pr.section !== 1 && pr.section !== 2) {
-        buckets.direct.push(pr);
+      // Pinning floats a PR into Team Requests regardless of its origin section.
+      if (isPromoted(pr)) {
+        if (pr.authorIsTeammate) buckets.teamTeammates.push(pr);
+        else buckets.teamOthers.push(pr);
         continue;
       }
       switch (pr.section) {
-        case 1: buckets.direct.push(pr); break;
-        case 2: buckets.direct.push(pr); break;
+        case 1: // legacy cached value from before "Needs Your Attention" was folded in
+        case 2:
         case 3:
           if (pr.authorIsTeammate) buckets.teamTeammates.push(pr);
           else buckets.teamOthers.push(pr);
@@ -1530,17 +1568,17 @@
       }
     }
 
-    // Sorts
-    buckets.direct.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    buckets.teamTeammates.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    buckets.teamOthers.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    // Sorts — pinned PRs float to the top of Team Requests, then oldest-first.
+    const pinnedFirst = (a, b) => (isPromoted(b) ? 1 : 0) - (isPromoted(a) ? 1 : 0)
+      || new Date(a.createdAt) - new Date(b.createdAt);
+    buckets.teamTeammates.sort(pinnedFirst);
+    buckets.teamOthers.sort(pinnedFirst);
     buckets.teamHandled.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     buckets.engaged.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     buckets.teammatesOpen.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     buckets.archived.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     buckets.deleted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
-    renderList('section-1', buckets.direct, badges);
     renderList('section-3', buckets.teamTeammates, badges);
     renderList('section-3b', buckets.teamOthers, badges);
     renderList('section-team-handled', buckets.teamHandled, badges);
@@ -1549,9 +1587,16 @@
     renderList('section-archive', buckets.archived, badges);
     renderList('section-deleted', buckets.deleted, badges);
 
-    // Section 4: group by status
-    const byStatus = { ci_failing: [], changes_requested: [], approved: [], awaiting: [] };
+    // Section 4: split into set-aside vs active, then group active by status
+    const mineArchived = [];
+    const mineActive = [];
     for (const pr of buckets.mine) {
+      (isArchivedMine(pr) ? mineArchived : mineActive).push(pr);
+    }
+    mineArchived.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    const byStatus = { ci_failing: [], changes_requested: [], approved: [], awaiting: [] };
+    for (const pr of mineActive) {
       byStatus[classifyMyPR(pr)].push(pr);
     }
     for (const list of Object.values(byStatus)) {
@@ -1566,9 +1611,14 @@
         sub.style.display = 'none';
       } else {
         sub.style.display = '';
-        body.innerHTML = list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr))).join('');
+        body.innerHTML = list.map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr), false)).join('');
       }
     }
+    const archiveGroup = section4El.querySelector('.my-archive-group');
+    archiveGroup.style.display = mineArchived.length === 0 ? 'none' : '';
+    archiveGroup.querySelector('.count').textContent = mineArchived.length;
+    archiveGroup.querySelector('.subgroup-body').innerHTML = mineArchived
+      .map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr), true)).join('');
     // (no empty-state text — the count badge in the header already reads "0")
   }
 
@@ -1723,6 +1773,8 @@
     else if (action === 'unarchive') unarchivePR(prId);
     else if (action === 'promote') promotePR(prId);
     else if (action === 'demote') demotePR(prId);
+    else if (action === 'stash-mine') archiveMinePR(pr);
+    else if (action === 'unstash-mine') unarchiveMinePR(prId);
     render(lastSnapshot, lastBadges);
   });
 
@@ -1779,7 +1831,7 @@
   setInterval(setLastRefreshLabel, 30000);
 
   function showSummary(badges, prevTimestamp) {
-    const counts = { NEW: 0, ESCALATED: 0, UPDATED: 0, 'NEW-REVIEW': 0 };
+    const counts = { NEW: 0, UPDATED: 0, 'NEW-REVIEW': 0 };
     for (const badge of Object.values(badges)) counts[badge] = (counts[badge] || 0) + 1;
     const totalChanges = Object.values(counts).reduce((a, b) => a + b, 0);
     const sinceLabel = prevTimestamp ? relativeTime(prevTimestamp) : 'first load';
@@ -1789,7 +1841,6 @@
     } else {
       const parts = [];
       if (counts.NEW) parts.push(`${counts.NEW} new`);
-      if (counts.ESCALATED) parts.push(`${counts.ESCALATED} escalated`);
       if (counts.UPDATED) parts.push(`${counts.UPDATED} updated`);
       if (counts['NEW-REVIEW']) parts.push(`${counts['NEW-REVIEW']} new review`);
       summaryEl.textContent = `${totalChanges} change${totalChanges > 1 ? 's' : ''} since last refresh (${sinceLabel}): ${parts.join(', ')}.`;
