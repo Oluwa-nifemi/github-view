@@ -448,7 +448,7 @@
   </div>
 
   <section class="section" id="section-3">
-    <h2><span>🟡</span> Team Requests — Teammates <span class="count">0</span></h2>
+    <h2><span>🔴</span> High Priority <span class="count">0</span></h2>
     <div class="cards" data-section="3"></div>
   </section>
 
@@ -1445,8 +1445,8 @@
     if (promoted) classes.push('is-promoted');
     const promoteHtml = !deleted && !archived
       ? promoted
-        ? `<button class="card-action promote pinned" data-action="demote" data-pr-id="${escapeHtml(pr.id)}" title="Unpin from Team Requests" aria-label="Unpin from Team Requests">📌</button>`
-        : `<button class="card-action promote" data-action="promote" data-pr-id="${escapeHtml(pr.id)}" title="Pin to top of Team Requests" aria-label="Pin to top of Team Requests">📌</button>`
+        ? `<button class="card-action promote pinned" data-action="demote" data-pr-id="${escapeHtml(pr.id)}" title="Unpin from High Priority" aria-label="Unpin from High Priority">📌</button>`
+        : `<button class="card-action promote" data-action="promote" data-pr-id="${escapeHtml(pr.id)}" title="Pin to High Priority" aria-label="Pin to High Priority">📌</button>`
       : '';
     const actionHtml = deleted
       ? `<button class="card-action unarchive" data-action="unarchive" data-pr-id="${escapeHtml(pr.id)}" title="Restore" aria-label="Restore">↺</button>`
@@ -1548,10 +1548,9 @@
         buckets.archived.push(pr);
         continue;
       }
-      // Pinning floats a PR into Team Requests regardless of its origin section.
+      // Pinning floats a PR into High Priority regardless of its origin section or author.
       if (isPromoted(pr)) {
-        if (pr.authorIsTeammate) buckets.teamTeammates.push(pr);
-        else buckets.teamOthers.push(pr);
+        buckets.teamTeammates.push(pr);
         continue;
       }
       switch (pr.section) {
