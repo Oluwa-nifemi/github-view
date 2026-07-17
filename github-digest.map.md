@@ -24,8 +24,8 @@ Line numbers drift as edits land — treat as hints, grep to confirm.
   - `.filters` — author chips, teammates toggle, repo chips, clear (~355–362)
   - Sections (each `<section class="section" id="section-X">`), in page order:
     - `section-3` 🟡 Team Requests — Teammates (personal review-requests render here too, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`)
-    - `section-3b` ⚪ Team Requests — Others
     - `section-4` 🟢 Your Open PRs (collapsible, collapsed by default, has 4 status subgroups + a `<details class="my-archive-group">` "Set aside" subgroup for PRs stashed via `gh_digest_archived_mine`)
+    - `section-3b` ⚪ Team Requests — Others
     - `section-team-handled` 🔵 Team Handled
     - `section-engaged` 💭 Engaged
     - `section-teammates-open` 👥 Teammates' Open PRs
