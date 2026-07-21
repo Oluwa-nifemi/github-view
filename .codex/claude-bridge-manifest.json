@@ -1,0 +1,15 @@
+{
+  "actions": [
+    {
+      "action": "skip",
+      "directory": "/Users/Oluwanifemi/Documents/work/github-view",
+      "reason": "AGENTS.md already symlinked to CLAUDE.md",
+      "source": "/Users/Oluwanifemi/Documents/work/github-view/CLAUDE.md",
+      "status": "already-linked",
+      "target": "/Users/Oluwanifemi/Documents/work/github-view/AGENTS.md"
+    }
+  ],
+  "generated_at": "2026-07-20T10:22:51.907861+00:00",
+  "mode": "apply",
+  "repo": "/Users/Oluwanifemi/Documents/work/github-view"
+}

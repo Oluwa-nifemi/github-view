@@ -522,6 +522,7 @@
   const ORG = 'ardoq';
   const TEAM = 'team-ai';
   const EXTRA_TEAMMATES = ['saksam760']; // treated as teammates beyond the GitHub team roster
+  const EXCLUDED_TEAMMATES = ['sophiebosio']; // on the GitHub team roster but not treated as a teammate here
   const STORAGE_TOKEN = 'gh_token';
   const STORAGE_SNAPSHOT = 'gh_digest_last_snapshot';
   const STORAGE_FILTER = 'gh_digest_filter_authors';
@@ -800,7 +801,7 @@
       try {
         const { members, fetchedAt } = JSON.parse(cached);
         if (Date.now() - fetchedAt < TEAMMATES_TTL_MS) {
-          return new Set([...members, ...EXTRA_TEAMMATES]);
+          return new Set([...members, ...EXTRA_TEAMMATES].filter(login => !EXCLUDED_TEAMMATES.includes(login)));
         }
       } catch {}
     }
@@ -811,10 +812,10 @@
         members: logins,
         fetchedAt: Date.now(),
       }));
-      return new Set([...logins, ...EXTRA_TEAMMATES]);
+      return new Set([...logins, ...EXTRA_TEAMMATES].filter(login => !EXCLUDED_TEAMMATES.includes(login)));
     } catch (err) {
       console.warn('teammates fetch failed:', err);
-      return new Set(EXTRA_TEAMMATES);
+      return new Set(EXTRA_TEAMMATES.filter(login => !EXCLUDED_TEAMMATES.includes(login)));
     }
   }
 
