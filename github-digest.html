@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>GitHub Digest</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%232563eb'/%3E%3Cpath d='M13 35h11l4 6h8l4-6h11v13H13V35Z' fill='%23fff'/%3E%3Cpath d='M32 14v20m0 0-8-8m8 8 8-8' fill='none' stroke='%23c8ff3d' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
     color-scheme: light dark;
@@ -521,7 +522,7 @@
   const USERNAME = 'Oluwa-nifemi';
   const ORG = 'ardoq';
   const TEAM = 'team-ai';
-  const EXTRA_TEAMMATES = ['saksam760']; // treated as teammates beyond the GitHub team roster
+  const EXTRA_TEAMMATES = ['saksam760', 'nataliadeluna']; // treated as teammates beyond the GitHub team roster
   const EXCLUDED_TEAMMATES = ['sophiebosio']; // on the GitHub team roster but not treated as a teammate here
   const STORAGE_TOKEN = 'gh_token';
   const STORAGE_SNAPSHOT = 'gh_digest_last_snapshot';
@@ -845,10 +846,11 @@
   // ---- PR enrichment helpers ----
 
   function normalizeReviews(rawReviews) {
-    return rawReviews.map(r => ({
-      user: r.user?.login,
-      state: r.state,
-      submittedAt: r.submitted_at,
+    return rawReviews.map(review => ({
+      user: review.user?.login,
+      state: review.state,
+      submittedAt: review.submitted_at,
+      commitId: review.commit_id,
     }));
   }
 
@@ -984,9 +986,16 @@
       const cachedTeammateApproved = cached && (cached.reviews || []).some(r =>
         r.user && r.user !== USERNAME && r.state === 'APPROVED' && teammates.has(r.user)
       );
-      const cachedUserReviewed = cached && (cached.reviews || []).some(r => r.user === USERNAME);
-      const needsRerouteRecheck = cachedTeammateApproved && !cachedUserReviewed && cached.section !== 5;
-      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined) {
+      const cachedUserReviews = (cached?.reviews || [])
+        .filter(review => review.user === USERNAME && review.state !== 'COMMENTED')
+        .sort((leftReview, rightReview) => new Date(rightReview.submittedAt) - new Date(leftReview.submittedAt));
+      const cachedLastUserReview = cachedUserReviews[0] || null;
+      const cachedUserApproved = cachedLastUserReview?.state === 'APPROVED';
+      const cachedUserReviewed = !!cachedLastUserReview;
+      const needsRerouteRecheck =
+        (cachedTeammateApproved && cached.section !== 5)
+        || (cachedUserApproved && cached.section !== 5);
+      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3, 5].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
@@ -1006,10 +1015,10 @@
         const isDirect = (requested.users || []).some(u => u.login === USERNAME);
         const isTeam = (requested.teams || []).length > 0;
         const userReviews = reviews
-          .filter(r => r.user?.login === USERNAME && r.state !== 'COMMENTED')
-          .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+          .filter(review => review.user?.login === USERNAME && review.state !== 'COMMENTED')
+          .sort((leftReview, rightReview) => new Date(rightReview.submitted_at) - new Date(leftReview.submitted_at));
         const lastUserReview = userReviews[0] || null;
-        const lastActivityAt = prDetail.updated_at;
+        const userApproved = lastUserReview?.state === 'APPROVED';
         // Latest review state per teammate (ignore your own + comment-only reviews)
         const latestTeammateReviews = new Map();
         for (const review of reviews) {
@@ -1028,11 +1037,12 @@
           && ![...latestTeammateReviews.values()].some(r => r.state === 'CHANGES_REQUESTED');
         // Personal ("isDirect") review requests no longer get their own section —
         // they render inside Team Requests with a label (see reviewChips).
-        const section = (teammateCovered && !lastUserReview)
-          ? 5 // a teammate already approved and you haven't weighed in — treat as handled
+        const section = (userApproved || teammateCovered)
+          ? 5 // you or a teammate approved — treat as handled
           : 3;
         prs[prId] = {
           ...buildPRBase(prId, repo, section, item, prDetail),
+          headSha: prDetail.head?.sha || null,
           isDirect,
           isTeam,
           ...(section === 5 ? {
@@ -1387,6 +1397,11 @@
     return 'awaiting';
   }
 
+  function isHandledByReview(pr) {
+    const latestByReviewer = latestNonCommentReviewsByReviewer(pr.reviews, pr.author, pr.pendingReviewerLogins);
+    return [...latestByReviewer.values()].some(review => review.state === 'APPROVED');
+  }
+
   // ---- Rendering ----
   function relativeTime(iso) {
     if (!iso) return '';
@@ -1408,12 +1423,12 @@
     const changes = [...latestByReviewer.values()].filter(r => r.state === 'CHANGES_REQUESTED').length;
     const chips = [];
     if (pr.section === 5) {
-      if (pr.youReviewed) {
-        chips.push(`<span class="chip team-handled">you reviewed</span>`);
-      } else if (pr.teammateReviewers && pr.teammateReviewers.length) {
+      if (pr.teammateReviewers && pr.teammateReviewers.length) {
         const first = pr.teammateReviewers[0];
         const extra = pr.teammateReviewers.length > 1 ? ` +${pr.teammateReviewers.length - 1}` : '';
         chips.push(`<span class="chip team-handled">handled by @${escapeHtml(first)}${extra}</span>`);
+      } else if (pr.youReviewed) {
+        chips.push(`<span class="chip team-handled">you reviewed</span>`);
       }
     }
     if (pr.isDirect && pr.reviewedBefore) chips.push(`<span class="chip reviewed">👁 reviewed before</span>`);
@@ -1552,6 +1567,10 @@
       // Pinning floats a PR into High Priority regardless of its origin section or author.
       if (isPromoted(pr)) {
         buckets.teamTeammates.push(pr);
+        continue;
+      }
+      if ([1, 2, 3].includes(pr.section) && isHandledByReview(pr)) {
+        buckets.teamHandled.push(pr);
         continue;
       }
       switch (pr.section) {
