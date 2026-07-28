@@ -23,7 +23,7 @@ Line numbers drift as edits land — treat as hints, grep to confirm.
   - `#summary` + `#error-bar` (~352–353)
   - `.filters` — author chips, teammates toggle, repo chips, clear (~355–362)
   - Sections (each `<section class="section" id="section-X">`), in page order:
-    - `section-3` ⭐ High Priority — teammate-authored team requests, plus any PR pinned via 📌 regardless of author/section (personal review-requests render here too when applicable, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`)
+    - `section-3` ⭐ High Priority — collapsible (expanded by default); teammate-authored team requests, plus any PR pinned via 📌 regardless of author/section (personal review-requests render here too when applicable, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`)
     - `section-4` 🟢 Your Open PRs (collapsible, collapsed by default, has 4 status subgroups + a `<details class="my-archive-group">` "Set aside" subgroup for PRs stashed via `gh_digest_archived_mine`)
     - `section-3b` ⚪ Team Requests — Others
     - `section-team-handled` 🔵 Team Handled

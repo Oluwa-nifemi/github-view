@@ -400,6 +400,109 @@
     text-align: center;
     margin-top: 32px;
   }
+
+  /* Restrained visual refresh: preserve the layout and improve density/readability. */
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --hover: #1f242c;
+    --accent: #58a6ff;
+    --red: #f85149;
+    --orange: #f0883e;
+    --yellow: #d29922;
+    --green: #3fb950;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  body { padding: 28px 34px; }
+  .wrap { max-width: 1400px; }
+  header { margin-bottom: 12px; }
+  h1 { font-size: 24px; }
+  .controls { gap: 10px; }
+
+  #summary {
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: auto 170px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 14px;
+    margin-bottom: 24px;
+    border-radius: 8px;
+  }
+  .filters label {
+    padding-top: 5px;
+    margin-right: 0;
+    font-weight: 400;
+  }
+  .filters > label:first-child { grid-column: 1; grid-row: 1; }
+  .filters > label:nth-of-type(2) { grid-column: 2; grid-row: 3; }
+  #author-search {
+    grid-column: 2;
+    grid-row: 1;
+    width: 170px;
+    height: 30px;
+    padding: 5px 10px;
+  }
+  #author-chips {
+    grid-column: 1 / 5;
+    grid-row: 2;
+  }
+  #teammates-filter {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  #repo-chips {
+    grid-column: 1 / 4;
+    grid-row: 4;
+  }
+  #clear-filter {
+    grid-column: 4;
+    grid-row: 4;
+  }
+  .author-chips {
+    gap: 7px;
+    min-width: 0;
+  }
+  .author-chip {
+    padding: 5px 11px;
+    border-color: var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .author-chip:hover {
+    border-color: #484f58;
+    background: var(--hover);
+  }
+  .author-chip.active {
+    background: #1f6feb;
+    border-color: #1f6feb;
+  }
+
+  section.section > h2 { min-height: 48px; }
+  .card-title { font-weight: 600; }
+  .chip { font-weight: 400; }
+  .chip.draft { font-weight: 400; }
+
+  @media (max-width: 760px) {
+    body { padding: 18px 14px; }
+    .filters {
+      display: flex;
+      align-items: center;
+    }
+    #author-search { width: 150px; }
+    #author-chips,
+    #repo-chips { flex-basis: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -448,9 +551,15 @@
     <button id="clear-filter">Clear</button>
   </div>
 
-  <section class="section" id="section-3">
-    <h2><span>⭐</span> High Priority <span class="count">0</span></h2>
-    <div class="cards" data-section="3"></div>
+  <section class="section collapsible" id="section-3">
+    <h2><span>⭐</span> High Priority <span class="count">0</span><span class="toggle">▾ collapse</span></h2>
+    <div class="cards" data-section="3">
+      <div class="priority-active"></div>
+      <details class="my-archive-group priority-drafts-group">
+        <summary>✎ Drafts <span class="count">0</span></summary>
+        <div class="subgroup-body"></div>
+      </details>
+    </div>
   </section>
 
   <section class="section collapsible collapsed" id="section-4">
@@ -1301,21 +1410,54 @@
       if (prs[prId]) return; // already covered by an earlier section
 
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 6) {
+      if (cached && cached.updatedAt === item.updated_at && [3, 6].includes(cached.section)
+        && cached.comments !== undefined && cached.lastUserActivityAt !== undefined
+        && cached.needsAttention !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
 
       try {
-        const [reviews, prDetail] = await Promise.all([
+        const [reviews, prDetail, issueComments, reviewComments] = await Promise.all([
           ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token),
           ghJson(`/repos/${repo}/pulls/${item.number}`, token),
+          ghJson(`/repos/${repo}/issues/${item.number}/comments?per_page=100`, token),
+          ghJson(`/repos/${repo}/pulls/${item.number}/comments?per_page=100`, token),
         ]);
         if (prDetail.state !== 'open' || prDetail.draft) return;
 
+        const comments = [...issueComments, ...reviewComments].map(comment => ({
+          user: comment.user?.login,
+          createdAt: comment.created_at,
+        }));
+        const userCommentTimes = comments
+          .filter(comment => comment.user === USERNAME)
+          .map(comment => comment.createdAt);
+        const userReviewTimes = reviews
+          .filter(review => review.user?.login === USERNAME && review.submitted_at)
+          .map(review => review.submitted_at);
+        const latestUserReview = reviews
+          .filter(review => review.user?.login === USERNAME && review.state !== 'COMMENTED')
+          .sort((leftReview, rightReview) =>
+            new Date(rightReview.submitted_at) - new Date(leftReview.submitted_at))[0] || null;
+        const lastUserActivityAt = [...userCommentTimes, ...userReviewTimes]
+          .filter(Boolean)
+          .sort()
+          .pop() || null;
+        // A reply, push, or other update after an unapproved interaction needs attention again.
+        const needsAttention = latestUserReview?.state !== 'APPROVED' && !!lastUserActivityAt
+          && new Date(prDetail.updated_at) > new Date(lastUserActivityAt);
+        const section = needsAttention ? 3 : 6;
+
         prs[prId] = {
-          ...buildPRBase(prId, repo, 6, item, prDetail),
+          ...buildPRBase(prId, repo, section, item, prDetail),
+          isDirect: false,
+          isTeam: false,
+          reviewedBefore: !!lastUserActivityAt,
           reviews: normalizeReviews(reviews),
+          comments,
+          lastUserActivityAt,
+          needsAttention,
         };
       } catch (err) {
         console.warn(`engaged enrich failed for ${prId}:`, err);
@@ -1586,7 +1728,7 @@
         buckets.teamTeammates.push(pr);
         continue;
       }
-      if ([1, 2, 3].includes(pr.section) && isHandledByReview(pr)) {
+      if ([1, 2, 3].includes(pr.section) && !pr.needsAttention && isHandledByReview(pr)) {
         buckets.teamHandled.push(pr);
         continue;
       }
@@ -1615,7 +1757,19 @@
     buckets.archived.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     buckets.deleted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
-    renderList('section-3', buckets.teamTeammates, badges);
+    // High Priority keeps drafts available without letting them dominate the active list.
+    const priorityDrafts = buckets.teamTeammates.filter(pr => pr.isDraft);
+    const priorityActive = buckets.teamTeammates.filter(pr => !pr.isDraft);
+    const section3El = $('section-3');
+    section3El.querySelector('.count').textContent = buckets.teamTeammates.length;
+    section3El.querySelector('.priority-active').innerHTML = priorityActive
+      .map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr))).join('');
+    const priorityDraftsGroup = section3El.querySelector('.priority-drafts-group');
+    priorityDraftsGroup.style.display = priorityDrafts.length === 0 ? 'none' : '';
+    priorityDraftsGroup.querySelector('.count').textContent = priorityDrafts.length;
+    priorityDraftsGroup.querySelector('.subgroup-body').innerHTML = priorityDrafts
+      .map(pr => renderCard(pr, badges[pr.id], isArchived(pr), isPromoted(pr))).join('');
+
     renderList('section-3b', buckets.teamOthers, badges);
     renderList('section-team-handled', buckets.teamHandled, badges);
     renderList('section-engaged', buckets.engaged, badges);
@@ -1670,11 +1824,7 @@
 
     authorChipsEl.innerHTML = sortedAuthors.map(author => {
       const active = activeAuthorFilters.has(author) ? 'active' : '';
-      const pr = Object.values(snapshot.prs).find(p => p.author === author);
-      const avatar = pr?.authorAvatar
-        ? `<img src="${pr.authorAvatar}" alt="">`
-        : '';
-      return `<span class="author-chip ${active}" data-author="${escapeHtml(author)}">${avatar}${escapeHtml(author)}</span>`;
+      return `<span class="author-chip ${active}" data-author="${escapeHtml(author)}">${escapeHtml(author)}</span>`;
     }).join('');
     authorChipsEl.querySelectorAll('.author-chip').forEach(chip => {
       chip.addEventListener('click', () => {
