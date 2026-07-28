@@ -37,13 +37,13 @@ Top-level constants then functional blocks in order:
 
 | Block | Purpose |
 |---|---|
-| Config consts (`USERNAME`, `ORG`, `TEAM`, `EXTRA_TEAMMATES`, `STORAGE_*`, `STALE_DAYS`, `TEAMMATES_TTL_MS`, `AUTO_REFRESH_MS`) | All `localStorage` keys live here; `AUTO_REFRESH_MS` = 3 min, controls both `setInterval` and visibility-change guard; `EXTRA_TEAMMATES` = logins treated as teammates beyond the GitHub team roster |
+| Config consts (`ORG`, `TEAM`, `EXTRA_TEAMMATES`, `STORAGE_*`, `STALE_DAYS`, `TEAMMATES_TTL_MS`, `AUTO_REFRESH_MS`) plus mutable `USERNAME` | `USERNAME` is not hardcoded — it's a `let` hydrated from `gh_username`, derived from the token's `/user` login by `ensureUsername`; all `localStorage` keys live here; `AUTO_REFRESH_MS` = 3 min, controls both `setInterval` and visibility-change guard; `EXTRA_TEAMMATES` = logins treated as teammates beyond the GitHub team roster |
 | DOM `$` helpers | element refs |
 | State vars | `teammates`, filters, `archivedPRs`, `archivedMinePRs`, `rateLimitedUntilMs`, `etagCache` (in-memory Map: url → `{etag, data}`) |
 | `archivedPRs` helpers — `isArchived`, `isDeleted`, `archivePR`, `deletePR`, `unarchivePR`, `persistArchived` | Global archive (any section). Entries: `{archivedAt, signature, deleted?, deletedAt?}`. Auto-resurface when `pr.updatedAt !== entry.signature`, unless `deleted: true`. |
 | `archivedMinePRs` helpers — `isArchivedMine`, `archiveMinePR`, `unarchiveMinePR`, `persistArchivedMine` | Separate "set aside" mechanism scoped to section 4 (Your Open PRs) only. Entries: `{archivedAt}` — no auto-resurface on activity; stays parked until manually restored via the 🗄/↺ card button. Renders in the `<details class="my-archive-group">` subgroup instead of removing the PR from view. |
 | `isStale` | >30 days since update |
-| Token setup — `showSetup` / `hideSetup`, `#token-save`, `#logout-btn` handlers | Validates token against `/user`, requires login matches `USERNAME` |
+| Token setup — `showSetup` / `hideSetup`, `ensureUsername`, `#token-save`, `#logout-btn` handlers | Validates token against `/user` and takes `USERNAME` from the returned login. `ensureUsername` back-fills it on refresh for sessions that stored a token before this key existed; a token for a different login clears the cached snapshot |
 | GitHub fetch — `ghFetch`, `ghJson`, `search`, `ghGraphQL`, `searchByTeammates`, `repoFromIssue` | `ghJson` sends `If-None-Match` from `etagCache`, handles 304 (free request), caches new ETags on 200. Throws `RateLimitError` on 403/429 with `X-RateLimit-Remaining: 0`. `ghGraphQL` posts to the GraphQL endpoint. `searchByTeammates(qualifier, logins, token, extraQ?)` issues a single GraphQL search ORing multiple `author:` or `review-requested:` qualifiers — replaces N parallel REST searches. |
 | `getTeammates(token)` | 24h-cached `/orgs/{ORG}/teams/{TEAM}/members`, unioned with `EXTRA_TEAMMATES` on every path (cache hit, fresh fetch, fetch failure) |
 | `parsePRFromNotification`, `fetchRelevantNotifications` | Used to find PRs the team already handled (catches PRs no longer in your review-requested list) |
@@ -96,6 +96,7 @@ youReviewed, teammateReviewers
 
 ## localStorage keys (all prefixed)
 - `gh_token` — PAT
+- `gh_username` — login derived from the PAT; cached to avoid a `/user` call per load
 - `gh_digest_last_snapshot` — full snapshot for diffing + cache fast-paths
 - `gh_digest_filter_authors`, `gh_digest_filter_repos`, `gh_digest_teammates` — filter state
 - `gh_digest_archived` — global archive/delete map

@@ -519,12 +519,13 @@
 <script>
 (() => {
   // ---- Config ----
-  const USERNAME = 'Oluwa-nifemi';
   const ORG = 'ardoq';
   const TEAM = 'team-ai';
   const EXTRA_TEAMMATES = ['saksam760', 'nataliadeluna']; // treated as teammates beyond the GitHub team roster
   const EXCLUDED_TEAMMATES = ['sophiebosio']; // on the GitHub team roster but not treated as a teammate here
   const STORAGE_TOKEN = 'gh_token';
+  const STORAGE_USERNAME = 'gh_username';
+  let USERNAME = localStorage.getItem(STORAGE_USERNAME) || '';
   const STORAGE_SNAPSHOT = 'gh_digest_last_snapshot';
   const STORAGE_FILTER = 'gh_digest_filter_authors';
   const STORAGE_REPO_FILTER = 'gh_digest_filter_repos';
@@ -663,6 +664,20 @@
     appEl.hidden = false;
   }
 
+  // The dashboard identity is whoever the token belongs to. Resolved once and
+  // cached so a returning session doesn't spend a request on /user every load.
+  async function ensureUsername(token) {
+    if (USERNAME) return USERNAME;
+    const res = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) throw new Error(`Token rejected (${res.status})`);
+    const me = await res.json();
+    USERNAME = me.login;
+    localStorage.setItem(STORAGE_USERNAME, USERNAME);
+    return USERNAME;
+  }
+
   $('token-save').addEventListener('click', async () => {
     const token = $('token-input').value.trim();
     if (!token) return;
@@ -673,9 +688,11 @@
       });
       if (!res.ok) throw new Error(`Token rejected (${res.status})`);
       const me = await res.json();
-      if (me.login.toLowerCase() !== USERNAME.toLowerCase()) {
-        throw new Error(`Token belongs to ${me.login}, expected ${USERNAME}`);
+      if (USERNAME && me.login.toLowerCase() !== USERNAME.toLowerCase()) {
+        localStorage.removeItem(STORAGE_SNAPSHOT);
       }
+      USERNAME = me.login;
+      localStorage.setItem(STORAGE_USERNAME, USERNAME);
       localStorage.setItem(STORAGE_TOKEN, token);
       hideSetup();
       refresh();
@@ -1880,6 +1897,7 @@
     $('refresh-btn').disabled = true;
 
     try {
+      await ensureUsername(token);
       const prevSnapshotRaw = localStorage.getItem(STORAGE_SNAPSHOT);
       const prevSnapshot = prevSnapshotRaw ? JSON.parse(prevSnapshotRaw) : null;
       const fresh = await buildSnapshot(token, prevSnapshot);
