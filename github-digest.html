@@ -366,7 +366,16 @@
     outline: none;
   }
 
-  .card-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; padding-right: 90px; }
+  .card-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    padding-right: 90px;
+  }
+  .card-title { font-weight: 500; font-size: 14px; }
+  .card-heading .chips { font-size: 11px; }
   .card-meta {
     display: flex;
     align-items: center;
@@ -403,15 +412,32 @@
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 5px;
     color: var(--muted);
     white-space: nowrap;
     cursor: help;
   }
-  .status-summary .approved { color: var(--green); }
-  .status-summary .changes { color: var(--orange); }
-  .status-summary .pending { color: var(--yellow); }
-  .status-summary .yours { color: var(--accent); }
+  .status-summary > span {
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--bg);
+  }
+  .status-summary .approved {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 10%, transparent);
+  }
+  .status-summary .changes {
+    color: var(--orange);
+    background: color-mix(in srgb, var(--orange) 11%, transparent);
+  }
+  .status-summary .pending {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  }
+  .status-summary .yours {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
   .status-summary::after {
     content: attr(data-tooltip);
     position: absolute;
@@ -1866,16 +1892,16 @@
       }
     }
     if (pr.isDirect) {
-      indicators.push('<span class="yours">👤</span>');
+      indicators.push('<span class="yours">requested you</span>');
       details.push('Review requested from you');
     } else if (latestUserDecision?.state === 'APPROVED') {
-      indicators.push('<span class="yours">✓ you</span>');
+      indicators.push('<span class="yours">✓ you approved</span>');
       details.push('You approved');
     } else if (latestUserDecision?.state === 'CHANGES_REQUESTED') {
-      indicators.push('<span class="changes">⚠ you</span>');
+      indicators.push('<span class="changes">⚠ changes requested</span>');
       details.push('You requested changes');
     } else if (userReviews.length > 0) {
-      indicators.push('<span class="yours">✓ you</span>');
+      indicators.push('<span class="yours">✓ you reviewed</span>');
       details.push('You reviewed');
     }
     if (pr.isDraft) {
@@ -1883,15 +1909,15 @@
       details.push('Draft PR');
     }
     if (otherApprovals > 0) {
-      indicators.push(`<span class="approved">✓ ${otherApprovals}</span>`);
+      indicators.push(`<span class="approved">✓ ${otherApprovals} approved</span>`);
       details.push(`${otherApprovals} other approval${otherApprovals === 1 ? '' : 's'}`);
     }
     if (otherChanges > 0) {
-      indicators.push(`<span class="changes">⚠ ${otherChanges}</span>`);
+      indicators.push(`<span class="changes">⚠ ${otherChanges} change request${otherChanges === 1 ? '' : 's'}</span>`);
       details.push(`${otherChanges} change request${otherChanges === 1 ? '' : 's'}`);
     }
     if (pr.section === 4 && pr.pendingReviewers > 0) {
-      indicators.push(`<span class="pending">⧗ ${pr.pendingReviewers}</span>`);
+      indicators.push(`<span class="pending">⧗ ${pr.pendingReviewers} pending</span>`);
       details.push(`${pr.pendingReviewers} pending reviewer${pr.pendingReviewers === 1 ? '' : 's'}`);
     }
     const summary = indicators.length
@@ -1947,13 +1973,15 @@
           ${stashHtml}
           ${actionHtml}
         </div>
-        <div class="card-title">${escapeHtml(pr.title)}</div>
+        <div class="card-heading">
+          <div class="card-title">${escapeHtml(pr.title)}</div>
+          ${reviewChips(pr)}
+        </div>
         <div class="card-meta">
           <span class="author">${avatar}${escapeHtml(pr.author || 'unknown')}</span>
           <span class="repo">${escapeHtml(pr.repo)}#${pr.number}</span>
          <span>${relativeTime(ageSrc)}</span>
           ${pr.additions != null ? `<span class="diff-stat"><span class="add">+${pr.additions}</span> <span class="del">&minus;${pr.deletions}</span></span>` : ''}
-          ${reviewChips(pr)}
         </div>
         ${noteHtml}
       </a>
