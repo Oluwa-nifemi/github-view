@@ -415,7 +415,6 @@
     gap: 5px;
     color: var(--muted);
     white-space: nowrap;
-    cursor: help;
   }
   .status-summary > span {
     position: relative;
@@ -439,7 +438,8 @@
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
-  .status-summary > span::after {
+  .status-summary > span[data-tooltip] { cursor: help; }
+  .status-summary > span[data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
     z-index: 20;
@@ -461,8 +461,8 @@
     opacity: 0;
     transition: opacity 0.12s, transform 0.12s;
   }
-  .status-summary > span:hover::after,
-  .status-summary > span:focus-visible::after {
+  .status-summary > span[data-tooltip]:hover::after,
+  .status-summary > span[data-tooltip]:focus-visible::after {
     opacity: 1;
     transform: translate(-50%, 0);
   }
@@ -1884,8 +1884,12 @@
     const otherChangeReviews = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED');
     const otherChanges = otherChangeReviews.length;
     const indicators = [];
-    const indicator = (className, label, detail) =>
-      `<span${className ? ` class="${className}"` : ''} tabindex="0" data-tooltip="${escapeHtml(detail)}" aria-label="${escapeHtml(detail)}">${label}</span>`;
+    const indicator = (className, label, detail = '') => {
+      const tooltipAttrs = detail
+        ? ` tabindex="0" data-tooltip="${escapeHtml(detail)}" aria-label="${escapeHtml(detail)}"`
+        : '';
+      return `<span${className ? ` class="${className}"` : ''}${tooltipAttrs}>${label}</span>`;
+    };
     if (pr.section === 5) {
       if (pr.teammateReviewers && pr.teammateReviewers.length) {
         const first = pr.teammateReviewers[0];
@@ -1900,7 +1904,7 @@
     } else if (latestUserDecision?.state === 'CHANGES_REQUESTED') {
       indicators.push(indicator('changes', '⚠ changes requested', 'You requested changes'));
     } else if (userReviews.length > 0) {
-      indicators.push(indicator('yours', '✓ you reviewed', 'You reviewed'));
+      indicators.push(indicator('yours', '✓ you reviewed'));
     }
     if (pr.isDraft) {
       indicators.push(indicator('', 'DRAFT', 'Draft PR'));
