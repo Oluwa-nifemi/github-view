@@ -1917,7 +1917,8 @@
         new Date(rightReview.submittedAt) - new Date(leftReview.submittedAt));
     const latestUserReview = userReviews[0] || null;
     const changedSinceReview = !!(
-      latestUserReview?.commitId
+      pr.section !== 4
+      && latestUserReview?.commitId
       && pr.headSha
       && latestUserReview.commitId !== pr.headSha
     );
