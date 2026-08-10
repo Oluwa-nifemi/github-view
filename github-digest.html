@@ -1915,6 +1915,12 @@
       .filter(review => review.user === USERNAME)
       .sort((leftReview, rightReview) =>
         new Date(rightReview.submittedAt) - new Date(leftReview.submittedAt));
+    const latestUserReview = userReviews[0] || null;
+    const changedSinceReview = !!(
+      latestUserReview?.commitId
+      && pr.headSha
+      && latestUserReview.commitId !== pr.headSha
+    );
     const latestUserDecision = userReviews.find(review =>
       review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED');
     const otherReviews = [...latestByReviewer.values()].filter(review => review.user !== USERNAME);
@@ -1941,12 +1947,12 @@
     }
     if (pr.isDirect) {
       indicators.push(indicator('yours', 'requested you', 'Review requested from you'));
+    } else if (changedSinceReview) {
+      indicators.push(indicator('changes', '↻ changed since review'));
     } else if (latestUserDecision?.state === 'APPROVED') {
       indicators.push(indicator('yours', '✓ you approved', 'You approved'));
     } else if (latestUserDecision?.state === 'CHANGES_REQUESTED') {
       indicators.push(indicator('changes', '⚠ changes requested', 'You requested changes'));
-    } else if (userReviews.length > 0) {
-      indicators.push(indicator('yours', '✓ you reviewed'));
     }
     if (pr.isDraft) {
       indicators.push(indicator('', 'DRAFT', 'Draft PR'));
