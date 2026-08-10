@@ -23,7 +23,7 @@ Line numbers drift as edits land — treat as hints, grep to confirm.
   - `#summary` + `#error-bar` (~352–353)
   - `.filters` — author chips, teammates toggle, repo chips, clear (~355–362)
   - Sections (each `<section class="section" id="section-X">`), in page order:
-    - `section-3` ⭐ High Priority — collapsible (expanded by default); teammate-authored team requests, plus any PR pinned via 📌 regardless of author/section (personal review-requests render here too when applicable, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`)
+    - `section-3` ⭐ High Priority — collapsible (expanded by default); three tiers: pinned PRs at top (from any section via 📌), then author-grouped `<details>` (collapsed when ≥4 PRs, sorted by pending direct-request then recency), then a drafts `<details>`. Personal review-requests render here too, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`.
     - `section-4` 🟢 Your Open PRs (collapsible, collapsed by default, has 4 status subgroups + a `<details class="my-archive-group">` "Set aside" subgroup for PRs stashed via `gh_digest_archived_mine`)
     - `section-3b` ⚪ Team Requests — Others
     - `section-team-handled` 🔵 Team Handled
@@ -59,7 +59,7 @@ Top-level constants then functional blocks in order:
 | **`classifyMyPR(pr)`** | Section 4 subgroup (active PRs only, excludes stashed): `ci_failing` > `changes_requested` > `approved` (only if `!pr.pendingReviewers`) > `awaiting`. |
 | `relativeTime`, `reviewChips`, `renderCard`, `escapeHtml` | Rendering primitives. `reviewChips` emits personal-request/reviewed/draft/approved/changes/pending/ci-fail in that order. `renderCard(pr, badge, archived, promoted, archivedMine)` chooses card class from badge or `is-draft`/`archived-mine`, and renders archive/delete/unarchive/stash corner buttons based on `isArchived`/`isDeleted`/`archivedMine`. Pin button (📌) has no section restriction — pinning always floats a PR into High Priority (section-3), regardless of author/origin. |
 | `applyFilter(prs)` | Author + teammate filters OR-combined; repo filter AND-combined. |
-| `renderList`, `render(snapshot, badges)` | Buckets PRs per section. Order: `isDeleted` → deleted, `isArchived` → global archived, `isPromoted` → High Priority (section-3) unconditionally, then by `pr.section` (unpromoted teammate-authored team requests also land in section-3; non-teammate ones go to section-3b). Section 4 split into `isArchivedMine` (→ `.my-archive-group`) vs active, active grouped by `classifyMyPR`. |
+| `renderList`, `render(snapshot, badges)` | Buckets PRs per section. Order: `isDeleted` → deleted, `isArchived` → global archived, `isPromoted` → High Priority (section-3) unconditionally, then by `pr.section` (unpromoted teammate-authored team requests also land in section-3; non-teammate ones go to section-3b). Section 3 split into pinned → author-grouped `<details>` (collapsed ≥4 PRs) → drafts. Section 4 split into `isArchivedMine` (→ `.my-archive-group`) vs active, active grouped by `classifyMyPR`. |
 | `renderFilters` | Builds author/repo chips from PR set, wires click handlers. |
 | Collapsible `<h2>` click handler | toggles `.collapsed` and `▸ expand` / `▾ collapse` label (section-4's `<details>` subgroup uses native toggle instead). |
 | Card-action click delegation | catches `data-action="archive\|delete\|unarchive\|promote\|demote\|stash-mine\|unstash-mine"` on any rendered card. |
