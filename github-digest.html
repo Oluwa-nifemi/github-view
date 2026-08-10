@@ -340,7 +340,7 @@
     opacity: 0;
     transition: opacity 0.12s, color 0.12s;
   }
-  .card:hover .note-delete { opacity: 0.6; }
+  .card:hover .note-delete { opacity: 0.8; }
   .note-delete:hover { opacity: 1 !important; color: var(--text); }
   .card-note-editor {
     display: block;
@@ -368,7 +368,10 @@
   }
   .card-meta .author { display: inline-flex; align-items: center; gap: 5px; }
   .card-meta img.avatar { width: 16px; height: 16px; border-radius: 50%; }
-  .card-meta .repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+ .card-meta .repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .diff-stat { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; white-space: nowrap; opacity: 0.8; }
+  .diff-stat .add { color: var(--green); }
+  .diff-stat .del { color: var(--red); }
   .chips { display: inline-flex; gap: 4px; }
   .chip {
     padding: 1px 7px;
@@ -1090,10 +1093,12 @@
       authorIsTeammate: !!(src.user?.login && teammates.has(src.user.login)),
       url: src.html_url,
       createdAt: src.created_at,
-      updatedAt: prDetail?.updated_at ?? item.updated_at,
-      section,
-      isDraft: !!(prDetail?.draft ?? item.draft),
-    };
+     updatedAt: prDetail?.updated_at ?? item.updated_at,
+     section,
+     isDraft: !!(prDetail?.draft ?? item.draft),
+      additions: prDetail?.additions ?? null,
+      deletions: prDetail?.deletions ?? null,
+   };
   }
 
   // ---- Snapshot builder ----
@@ -1189,7 +1194,7 @@
         (cachedTeammateApproved && cached.section !== 5)
         || (cachedUserApproved && cached.section !== 5)
         || (cached?.isDirect && cached.section !== 3);
-      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3, 5].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3, 5].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined && cached.additions !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
@@ -1264,7 +1269,7 @@
       if (myItemsMap.has(prId)) return;
 
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 3) {
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 3 && cached.additions !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
@@ -1334,7 +1339,7 @@
       // Cache fast-path: if updated_at hasn't bumped, reviews + comments + head SHA unchanged.
       // CI can change independently though — always re-check.
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined && cached.additions !== undefined) {
         const ciFailing = await checkCi(repo, cached.headSha);
         prs[prId] = { ...cached, title: item.title, ciFailing, isDraft: !!item.draft };
         return;
@@ -1416,7 +1421,7 @@
         const cached = cachedPRs[prId];
         if (cached && cached.updatedAt === prDetail.updated_at && cached.section === 5
           && cached.comments !== undefined && cached.lastUserActivityAt !== undefined
-          && cached.externalActivityAfterUser !== undefined) {
+          && cached.externalActivityAfterUser !== undefined && cached.additions !== undefined) {
           prs[prId] = applyCachedPR(cached, prDetail.title);
           return;
         }
@@ -1508,7 +1513,7 @@
       if (cached && cached.updatedAt === item.updated_at && [3, 6].includes(cached.section)
         && cached.comments !== undefined && cached.lastUserActivityAt !== undefined
         && cached.needsAttention !== undefined
-        && cached.externalActivityAfterUser !== undefined) {
+        && cached.externalActivityAfterUser !== undefined && cached.additions !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
@@ -1765,7 +1770,8 @@
         <div class="card-meta">
           <span class="author">${avatar}${escapeHtml(pr.author || 'unknown')}</span>
           <span class="repo">${escapeHtml(pr.repo)}#${pr.number}</span>
-          <span>${relativeTime(ageSrc)}</span>
+         <span>${relativeTime(ageSrc)}</span>
+          ${pr.additions != null ? `<span class="diff-stat"><span class="add">+${pr.additions}</span> <span class="del">&minus;${pr.deletions}</span></span>` : ''}
           ${reviewChips(pr)}
         </div>
         ${noteHtml}
