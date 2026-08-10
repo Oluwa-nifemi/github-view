@@ -1151,6 +1151,33 @@
     return match ? match[1] : null;
   }
 
+  async function getReviewDecisions(items, token) {
+    const entries = items.map((item, index) => {
+      const repo = repoFromIssue(item);
+      if (!repo) return null;
+      const [owner, name] = repo.split('/');
+      return { alias: `pr${index}`, repo, number: item.number, owner, name };
+    }).filter(Boolean);
+    if (!entries.length) return new Map();
+    const fields = entries.map(entry =>
+      `${entry.alias}: repository(owner: ${JSON.stringify(entry.owner)}, name: ${JSON.stringify(entry.name)}) {
+        pullRequest(number: ${entry.number}) { reviewDecision }
+      }`
+    ).join('\n');
+    try {
+      const data = await ghGraphQL(`query { ${fields} }`, token);
+      return new Map(entries
+        .filter(entry => data[entry.alias]?.pullRequest)
+        .map(entry => [
+          `${entry.repo}#${entry.number}`,
+          data[entry.alias].pullRequest.reviewDecision,
+        ]));
+    } catch (err) {
+      console.warn('review decision fetch failed:', err);
+      return new Map();
+    }
+  }
+
   // ---- Teammates (with 24h cache) ----
   async function getTeammates(token) {
     const cached = localStorage.getItem(STORAGE_TEAMMATES_DATA);
@@ -1352,6 +1379,7 @@
       myItemsMap.set(`${repo}#${item.number}`, item);
     }
     const myItems = [...myItemsMap.values()];
+    const reviewDecisionsPromise = getReviewDecisions(myItems, token);
 
     const prs = {};
 
@@ -1522,6 +1550,7 @@
     }
 
     // Enrich your own PRs concurrently
+    const reviewDecisions = await reviewDecisionsPromise;
     await Promise.all(myItems.map(async (item) => {
       const repo = repoFromIssue(item);
       if (!repo) return;
@@ -1530,9 +1559,12 @@
       // Cache fast-path: if updated_at hasn't bumped, reviews + comments + head SHA unchanged.
       // CI can change independently though — always re-check.
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined && cached.additions !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined && cached.additions !== undefined && cached.reviewDecision !== undefined) {
         const ciFailing = await checkCi(repo, cached.headSha);
-        prs[prId] = { ...cached, title: item.title, ciFailing, isDraft: !!item.draft };
+        const reviewDecision = reviewDecisions.has(prId)
+          ? reviewDecisions.get(prId)
+          : cached.reviewDecision;
+        prs[prId] = { ...cached, title: item.title, ciFailing, reviewDecision, isDraft: !!item.draft };
         return;
       }
 
@@ -1558,6 +1590,7 @@
           headSha: sha,
           pendingReviewers,
           pendingReviewerLogins,
+          reviewDecision: reviewDecisions.has(prId) ? reviewDecisions.get(prId) : undefined,
           reviews: normalizeReviews(reviews),
           comments,
           ciFailing,
@@ -1840,15 +1873,18 @@
   }
 
   // ---- Section 4 status classification ----
+  function isApprovalSufficient(pr, hasApproval) {
+    if (!hasApproval) return false;
+    if (pr.reviewDecision === undefined) return !pr.pendingReviewers;
+    return pr.reviewDecision === 'APPROVED' || pr.reviewDecision === null;
+  }
+
   function classifyMyPR(pr) {
     if (pr.ciFailing) return 'ci_failing';
     const latestByReviewer = latestNonCommentReviewsByReviewer(pr.reviews, pr.author, pr.pendingReviewerLogins);
     const states = [...latestByReviewer.values()].map(r => r.state);
     if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
-    // Only consider fully approved when no reviewers are still pending (covers
-    // the case where two code owners are required but only one has approved —
-    // GitHub keeps the other in requested_reviewers until they review).
-    if (states.includes('APPROVED') && !pr.pendingReviewers) return 'approved';
+    if (isApprovalSufficient(pr, states.includes('APPROVED'))) return 'approved';
     return 'awaiting';
   }
 
@@ -1885,6 +1921,10 @@
     const otherApprovals = otherReviews.filter(review => review.state === 'APPROVED').length;
     const otherChangeReviews = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED');
     const otherChanges = otherChangeReviews.length;
+    const approvalSufficient = isApprovalSufficient(
+      pr,
+      latestUserDecision?.state === 'APPROVED' || otherApprovals > 0
+    );
     const indicators = [];
     const indicator = (className, label, detail = '') => {
       const tooltipAttrs = detail
@@ -1925,7 +1965,7 @@
         `Requested by ${otherChangeReviews.map(review => `@${review.user}`).join(', ')}`
       ));
     }
-    if (pr.section === 4 && pr.pendingReviewers > 0) {
+    if (pr.section === 4 && pr.pendingReviewers > 0 && !approvalSufficient) {
       indicators.push(indicator(
         'pending',
         `⧗ ${pr.pendingReviewers} pending`,
