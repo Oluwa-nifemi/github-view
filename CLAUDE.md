@@ -21,6 +21,7 @@ Single-file personal GitHub PR dashboard. `github-digest.html` is the whole app 
 
 ## After changes
 
+- **Commit and push after every change.** Don't leave stale uncommitted edits sitting in the worktree.
 - Verify in a browser. There's no test suite. Type-check is "does it parse".
 - The user keeps the file open in a tab; a hard reload picks up edits.
 - Old `gh_digest_last_snapshot` in localStorage may need clearing if you change snapshot shape in a non-backwards-compatible way (the fast-path guards usually handle this, but worth knowing).
