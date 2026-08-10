@@ -78,6 +78,15 @@
   }
   button.primary:hover,
   button.active:hover { filter: brightness(1.1); }
+  button.icon-button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
 
   #summary {
     padding: 10px 14px;
@@ -390,8 +399,102 @@
   .chip.reviewed { color: var(--accent); border-color: var(--accent); }
   .chip.personal { color: var(--panel); border-color: var(--accent); background: var(--accent); }
   .chip.yours { color: var(--accent); border-color: var(--accent); }
+  .status-summary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+    white-space: nowrap;
+    cursor: help;
+  }
+  .status-summary .approved { color: var(--green); }
+  .status-summary .changes { color: var(--orange); }
+  .status-summary .pending { color: var(--yellow); }
+  .status-summary .yours { color: var(--accent); }
+  .status-summary::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    z-index: 20;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    width: max-content;
+    max-width: 280px;
+    transform: translate(-50%, 4px);
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-line;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s, transform 0.12s;
+  }
+  .status-summary:hover::after,
+  .status-summary:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
   .card.is-draft { opacity: 0.8; }
   .card.is-draft:hover { opacity: 1; }
+
+  dialog {
+    width: min(620px, calc(100vw - 32px));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0;
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.55); }
+  .settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-header h2 { margin: 0; font-size: 16px; }
+  .settings-body { padding: 18px; }
+  .settings-copy { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .ignore-rules { display: grid; gap: 8px; margin-bottom: 16px; }
+  .ignore-rule {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.4fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg);
+    font-size: 12px;
+  }
+  .ignore-rule code { overflow-wrap: anywhere; }
+  .ignore-rule button { padding: 4px 9px; }
+  .ignore-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .ignore-form {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.4fr) auto;
+    gap: 8px;
+  }
+  .ignore-form input {
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+  }
+  @media (max-width: 620px) {
+    .ignore-rule,
+    .ignore-form { grid-template-columns: 1fr; }
+  }
 
   .badge {
     font-size: 10px;
@@ -574,9 +677,26 @@
       <span id="last-refresh">—</span>
       <span id="spinner"></span>
       <button id="refresh-btn" class="primary">Refresh</button>
+      <button id="settings-btn" class="icon-button" title="Settings" aria-label="Settings">⚙</button>
       <button id="logout-btn" title="Forget token">Sign out</button>
     </div>
   </header>
+
+  <dialog id="settings-dialog">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button id="settings-close" class="icon-button" aria-label="Close settings">×</button>
+    </div>
+    <div class="settings-body">
+      <p class="settings-copy">Ignored CI checks do not appear anywhere in the dashboard. Matching is case-insensitive and checks whether the job name contains the text.</p>
+      <div id="ignore-rules" class="ignore-rules"></div>
+      <form id="ignore-form" class="ignore-form">
+        <input id="ignore-repo" placeholder="Repository or *" aria-label="Repository scope">
+        <input id="ignore-pattern" placeholder="Job name contains…" aria-label="Job name pattern" required>
+        <button type="submit">Add rule</button>
+      </form>
+    </div>
+  </dialog>
 
   <div id="summary" hidden></div>
   <div id="error-bar" class="error-bar" hidden></div>
@@ -686,6 +806,11 @@
   const STORAGE_PROMOTED = 'gh_digest_promoted';
   const STORAGE_COLLAPSED_AUTHORS = 'gh_digest_collapsed_authors';
   const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
+  const STORAGE_IGNORED_CI = 'gh_digest_ignored_ci';
+  const DEFAULT_IGNORED_CI = [
+    { repo: '*', pattern: 'osv' },
+    { repo: 'ardoq/ardoq-packages', pattern: 'run-ai-tests / run-playwright-tag' },
+  ];
   const TEAMMATES_TTL_MS = 24 * 60 * 60 * 1000;
   const AUTO_REFRESH_MS = 3 * 60 * 1000;
   const STALE_DAYS = 30;
@@ -702,6 +827,8 @@
   const repoChipsEl = $('repo-chips');
   const lastRefreshEl = $('last-refresh');
   const spinnerEl = $('spinner');
+  const settingsDialog = $('settings-dialog');
+  const ignoreRulesEl = $('ignore-rules');
 
   // ---- State ----
   let teammates = new Set(); // populated by getTeammates
@@ -715,6 +842,37 @@
   let archivedMinePRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED_MINE) || '{}');
   let promotedPRs = new Set(JSON.parse(localStorage.getItem(STORAGE_PROMOTED) || '[]'));
   let collapsedAuthors = new Set(JSON.parse(localStorage.getItem(STORAGE_COLLAPSED_AUTHORS) || '[]'));
+  let ignoredCiRules = JSON.parse(
+    localStorage.getItem(STORAGE_IGNORED_CI) || JSON.stringify(DEFAULT_IGNORED_CI)
+  );
+
+  function persistIgnoredCiRules() {
+    localStorage.setItem(STORAGE_IGNORED_CI, JSON.stringify(ignoredCiRules));
+  }
+
+  function isIgnoredCiCheck(repo, name) {
+    const normalizedRepo = repo.toLowerCase();
+    const normalizedName = String(name || '').toLowerCase();
+    return ignoredCiRules.some(rule => {
+      const ruleRepo = String(rule.repo || '*').trim().toLowerCase();
+      const pattern = String(rule.pattern || '').trim().toLowerCase();
+      return pattern
+        && (ruleRepo === '*' || ruleRepo === normalizedRepo)
+        && normalizedName.includes(pattern);
+    });
+  }
+
+  function renderIgnoredCiRules() {
+    ignoreRulesEl.innerHTML = ignoredCiRules.length
+      ? ignoredCiRules.map((rule, index) => `
+          <div class="ignore-rule">
+            <code>${escapeHtml(rule.repo || '*')}</code>
+            <code>${escapeHtml(rule.pattern)}</code>
+            <button type="button" data-ignore-index="${index}">Stop ignoring</button>
+          </div>
+        `).join('')
+      : '<div class="ignore-empty">No CI checks are ignored.</div>';
+  }
 
   function persistArchived() {
     localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(archivedPRs));
@@ -1321,9 +1479,13 @@
           }
         }
         const failing = [...latestByKey.values()].some(c =>
-          ['failure', 'timed_out', 'action_required'].includes(c.conclusion)
+          !isIgnoredCiCheck(repo, c.name)
+          && ['failure', 'timed_out', 'action_required'].includes(c.conclusion)
         );
-        return failing || statuses.some(s => s.state === 'failure' || s.state === 'error');
+        return failing || statuses.some(s =>
+          !isIgnoredCiCheck(repo, s.context)
+          && (s.state === 'failure' || s.state === 'error')
+        );
       } catch (err) {
         console.warn(`ci check failed for ${repo} ${sha}:`, err);
         return false;
@@ -1693,31 +1855,50 @@
     const otherReviews = [...latestByReviewer.values()].filter(review => review.user !== USERNAME);
     const otherApprovals = otherReviews.filter(review => review.state === 'APPROVED').length;
     const otherChanges = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED').length;
-    const chips = [];
+    const indicators = [];
+    const details = [];
     if (pr.section === 5) {
       if (pr.teammateReviewers && pr.teammateReviewers.length) {
         const first = pr.teammateReviewers[0];
         const extra = pr.teammateReviewers.length > 1 ? ` +${pr.teammateReviewers.length - 1}` : '';
-        chips.push(`<span class="chip team-handled">handled by @${escapeHtml(first)}${extra}</span>`);
+        indicators.push(`<span class="yours">✓ @${escapeHtml(first)}${extra}</span>`);
+        details.push(`Handled by @${first}${extra}`);
       }
     }
     if (pr.isDirect) {
-      chips.push(`<span class="chip personal">requested you</span>`);
+      indicators.push('<span class="yours">👤</span>');
+      details.push('Review requested from you');
     } else if (latestUserDecision?.state === 'APPROVED') {
-      chips.push(`<span class="chip approved">you approved</span>`);
+      indicators.push('<span class="yours">✓ you</span>');
+      details.push('You approved');
     } else if (latestUserDecision?.state === 'CHANGES_REQUESTED') {
-      chips.push(`<span class="chip changes">you requested changes</span>`);
+      indicators.push('<span class="changes">⚠ you</span>');
+      details.push('You requested changes');
     } else if (userReviews.length > 0) {
-      chips.push(`<span class="chip yours">you reviewed</span>`);
+      indicators.push('<span class="yours">✓ you</span>');
+      details.push('You reviewed');
     }
-    if (pr.isDraft) chips.push(`<span class="chip draft">DRAFT</span>`);
-    if (otherApprovals > 0) chips.push(`<span class="chip approved">✓ ${otherApprovals} other approved</span>`);
-    if (otherChanges > 0) chips.push(`<span class="chip changes">⚠ ${otherChanges} other requested changes</span>`);
+    if (pr.isDraft) {
+      indicators.push('<span>DRAFT</span>');
+      details.push('Draft PR');
+    }
+    if (otherApprovals > 0) {
+      indicators.push(`<span class="approved">✓ ${otherApprovals}</span>`);
+      details.push(`${otherApprovals} other approval${otherApprovals === 1 ? '' : 's'}`);
+    }
+    if (otherChanges > 0) {
+      indicators.push(`<span class="changes">⚠ ${otherChanges}</span>`);
+      details.push(`${otherChanges} change request${otherChanges === 1 ? '' : 's'}`);
+    }
     if (pr.section === 4 && pr.pendingReviewers > 0) {
-      chips.push(`<span class="chip pending">⧗ ${pr.pendingReviewers} pending</span>`);
+      indicators.push(`<span class="pending">⧗ ${pr.pendingReviewers}</span>`);
+      details.push(`${pr.pendingReviewers} pending reviewer${pr.pendingReviewers === 1 ? '' : 's'}`);
     }
-    if (pr.ciFailing) chips.push(`<span class="chip ci-fail">CI ✗</span>`);
-    return chips.length ? `<span class="chips">${chips.join('')}</span>` : '';
+    const summary = indicators.length
+      ? `<span class="status-summary" tabindex="0" data-tooltip="${escapeHtml(details.join('\n'))}" aria-label="${escapeHtml(details.join('. '))}">${indicators.join('')}</span>`
+      : '';
+    const ci = pr.ciFailing ? '<span class="chip ci-fail">CI ✗</span>' : '';
+    return summary || ci ? `<span class="chips">${summary}${ci}</span>` : '';
   }
 
   function renderCard(pr, badge, archived, promoted, archivedMine) {
@@ -2250,6 +2431,34 @@
   }
 
   $('refresh-btn').addEventListener('click', refresh);
+  $('settings-btn').addEventListener('click', () => {
+    renderIgnoredCiRules();
+    settingsDialog.showModal();
+  });
+  $('settings-close').addEventListener('click', () => settingsDialog.close());
+  settingsDialog.addEventListener('click', event => {
+    if (event.target === settingsDialog) settingsDialog.close();
+  });
+  ignoreRulesEl.addEventListener('click', event => {
+    const button = event.target.closest('[data-ignore-index]');
+    if (!button) return;
+    ignoredCiRules.splice(Number(button.dataset.ignoreIndex), 1);
+    persistIgnoredCiRules();
+    renderIgnoredCiRules();
+    refresh();
+  });
+  $('ignore-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const repo = $('ignore-repo').value.trim() || '*';
+    const pattern = $('ignore-pattern').value.trim();
+    if (!pattern) return;
+    ignoredCiRules.push({ repo, pattern });
+    persistIgnoredCiRules();
+    $('ignore-repo').value = '';
+    $('ignore-pattern').value = '';
+    renderIgnoredCiRules();
+    refresh();
+  });
 
   // ---- Boot ----
   function renderCachedIfAny() {
