@@ -832,6 +832,7 @@
   const STORAGE_NOTES = 'gh_digest_notes';
   const STORAGE_PROMOTED = 'gh_digest_promoted';
   const STORAGE_COLLAPSED_AUTHORS = 'gh_digest_collapsed_authors';
+  const STORAGE_COLLAPSED_SECTIONS = 'gh_digest_collapsed_sections';
   const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
   const STORAGE_IGNORED_CI = 'gh_digest_ignored_ci';
   const DEFAULT_IGNORED_CI = [
@@ -869,6 +870,7 @@
   let archivedMinePRs = JSON.parse(localStorage.getItem(STORAGE_ARCHIVED_MINE) || '{}');
   let promotedPRs = new Set(JSON.parse(localStorage.getItem(STORAGE_PROMOTED) || '[]'));
   let collapsedAuthors = new Set(JSON.parse(localStorage.getItem(STORAGE_COLLAPSED_AUTHORS) || '[]'));
+  let collapsedSections = JSON.parse(localStorage.getItem(STORAGE_COLLAPSED_SECTIONS) || '{}');
   let ignoredCiRules = JSON.parse(
     localStorage.getItem(STORAGE_IGNORED_CI) || JSON.stringify(DEFAULT_IGNORED_CI)
   );
@@ -2282,11 +2284,20 @@
     authorSearchEl.focus();
   });
 
-  // Collapsible section toggles (section-3b, section-archive)
+  // Collapsible section toggles
   document.querySelectorAll('section.collapsible > h2').forEach(h2 => {
+    const section = h2.parentElement;
+    if (Object.prototype.hasOwnProperty.call(collapsedSections, section.id)) {
+      section.classList.toggle('collapsed', collapsedSections[section.id]);
+      const toggle = h2.querySelector('.toggle');
+      if (toggle) {
+        toggle.textContent = collapsedSections[section.id] ? '▸ expand' : '▾ collapse';
+      }
+    }
     h2.addEventListener('click', () => {
-      const section = h2.parentElement;
       section.classList.toggle('collapsed');
+      collapsedSections[section.id] = section.classList.contains('collapsed');
+      localStorage.setItem(STORAGE_COLLAPSED_SECTIONS, JSON.stringify(collapsedSections));
       const toggle = h2.querySelector('.toggle');
       if (toggle) {
         toggle.textContent = section.classList.contains('collapsed') ? '▸ expand' : '▾ collapse';
