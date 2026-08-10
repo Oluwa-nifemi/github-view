@@ -418,6 +418,7 @@
     cursor: help;
   }
   .status-summary > span {
+    position: relative;
     padding: 2px 7px;
     border-radius: 5px;
     background: var(--bg);
@@ -438,7 +439,7 @@
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
-  .status-summary::after {
+  .status-summary > span::after {
     content: attr(data-tooltip);
     position: absolute;
     z-index: 20;
@@ -460,8 +461,8 @@
     opacity: 0;
     transition: opacity 0.12s, transform 0.12s;
   }
-  .status-summary:hover::after,
-  .status-summary:focus-visible::after {
+  .status-summary > span:hover::after,
+  .status-summary > span:focus-visible::after {
     opacity: 1;
     transform: translate(-50%, 0);
   }
@@ -1883,46 +1884,50 @@
     const otherChangeReviews = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED');
     const otherChanges = otherChangeReviews.length;
     const indicators = [];
-    const details = [];
+    const indicator = (className, label, detail) =>
+      `<span${className ? ` class="${className}"` : ''} tabindex="0" data-tooltip="${escapeHtml(detail)}" aria-label="${escapeHtml(detail)}">${label}</span>`;
     if (pr.section === 5) {
       if (pr.teammateReviewers && pr.teammateReviewers.length) {
         const first = pr.teammateReviewers[0];
         const extra = pr.teammateReviewers.length > 1 ? ` +${pr.teammateReviewers.length - 1}` : '';
-        indicators.push(`<span class="yours">✓ @${escapeHtml(first)}${extra}</span>`);
-        details.push(`Handled by @${first}${extra}`);
+        indicators.push(indicator('yours', `✓ @${escapeHtml(first)}${extra}`, `Handled by @${first}${extra}`));
       }
     }
     if (pr.isDirect) {
-      indicators.push('<span class="yours">requested you</span>');
-      details.push('Review requested from you');
+      indicators.push(indicator('yours', 'requested you', 'Review requested from you'));
     } else if (latestUserDecision?.state === 'APPROVED') {
-      indicators.push('<span class="yours">✓ you approved</span>');
-      details.push('You approved');
+      indicators.push(indicator('yours', '✓ you approved', 'You approved'));
     } else if (latestUserDecision?.state === 'CHANGES_REQUESTED') {
-      indicators.push('<span class="changes">⚠ changes requested</span>');
-      details.push('You requested changes');
+      indicators.push(indicator('changes', '⚠ changes requested', 'You requested changes'));
     } else if (userReviews.length > 0) {
-      indicators.push('<span class="yours">✓ you reviewed</span>');
-      details.push('You reviewed');
+      indicators.push(indicator('yours', '✓ you reviewed', 'You reviewed'));
     }
     if (pr.isDraft) {
-      indicators.push('<span>DRAFT</span>');
-      details.push('Draft PR');
+      indicators.push(indicator('', 'DRAFT', 'Draft PR'));
     }
     if (otherApprovals > 0) {
-      indicators.push(`<span class="approved">✓ ${otherApprovals} approved</span>`);
-      details.push(`${otherApprovals} other approval${otherApprovals === 1 ? '' : 's'}`);
+      indicators.push(indicator(
+        'approved',
+        `✓ ${otherApprovals} approved`,
+        `${otherApprovals} other approval${otherApprovals === 1 ? '' : 's'}`
+      ));
     }
     if (otherChanges > 0) {
-      indicators.push(`<span class="changes">⚠ ${otherChanges} change request${otherChanges === 1 ? '' : 's'}</span>`);
-      details.push(`Requested by ${otherChangeReviews.map(review => `@${review.user}`).join(', ')}`);
+      indicators.push(indicator(
+        'changes',
+        `⚠ ${otherChanges} change request${otherChanges === 1 ? '' : 's'}`,
+        `Requested by ${otherChangeReviews.map(review => `@${review.user}`).join(', ')}`
+      ));
     }
     if (pr.section === 4 && pr.pendingReviewers > 0) {
-      indicators.push(`<span class="pending">⧗ ${pr.pendingReviewers} pending</span>`);
-      details.push(`${pr.pendingReviewers} pending reviewer${pr.pendingReviewers === 1 ? '' : 's'}`);
+      indicators.push(indicator(
+        'pending',
+        `⧗ ${pr.pendingReviewers} pending`,
+        `${pr.pendingReviewers} pending reviewer${pr.pendingReviewers === 1 ? '' : 's'}`
+      ));
     }
     const summary = indicators.length
-      ? `<span class="status-summary" tabindex="0" data-tooltip="${escapeHtml(details.join('\n'))}" aria-label="${escapeHtml(details.join('. '))}">${indicators.join('')}</span>`
+      ? `<span class="status-summary">${indicators.join('')}</span>`
       : '';
     const ci = pr.ciFailing ? '<span class="chip ci-fail">CI ✗</span>' : '';
     return summary || ci ? `<span class="chips">${summary}${ci}</span>` : '';
