@@ -1880,7 +1880,8 @@
       review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED');
     const otherReviews = [...latestByReviewer.values()].filter(review => review.user !== USERNAME);
     const otherApprovals = otherReviews.filter(review => review.state === 'APPROVED').length;
-    const otherChanges = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED').length;
+    const otherChangeReviews = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED');
+    const otherChanges = otherChangeReviews.length;
     const indicators = [];
     const details = [];
     if (pr.section === 5) {
@@ -1914,7 +1915,7 @@
     }
     if (otherChanges > 0) {
       indicators.push(`<span class="changes">⚠ ${otherChanges} change request${otherChanges === 1 ? '' : 's'}</span>`);
-      details.push(`${otherChanges} change request${otherChanges === 1 ? '' : 's'}`);
+      details.push(`Requested by ${otherChangeReviews.map(review => `@${review.user}`).join(', ')}`);
     }
     if (pr.section === 4 && pr.pendingReviewers > 0) {
       indicators.push(`<span class="pending">⧗ ${pr.pendingReviewers} pending</span>`);
