@@ -805,6 +805,39 @@
   .notif-item.read .notif-time,
   .notif-item.read .notif-pr { color: var(--muted); }
   .notif-item.read:hover { background: #1c2128; border-color: #30363d; }
+  .notif-item.notif-ambient {
+    background: transparent;
+    border-color: transparent;
+    padding: 5px 14px;
+    font-size: 12px;
+    opacity: 0.8;
+  }
+  .notif-item.notif-ambient .notif-icon {
+    width: 18px; height: 18px;
+    font-size: 10px;
+  }
+  .notif-item.notif-ambient .notif-unread-dot { display: none; }
+  .notif-item.notif-ambient .notif-pr { font-size: 11px; }
+  .notif-item.notif-action {
+    border-left: 2px solid var(--accent, #1f6feb);
+  }
+  .notif-item.notif-action.notif-type-reply { border-left-color: #a371f7; }
+  .notif-item.notif-action.notif-type-changes { border-left-color: #f85149; }
+  .notif-item.notif-action.notif-type-approved { border-left-color: #3fb950; }
+  .notif-item.notif-action.notif-type-mentioned { border-left-color: #d29922; }
+  .notif-item.notif-action.notif-type-assigned { border-left-color: #58a6ff; }
+
+  .notif-item.notif-fyi {
+    background: transparent;
+    border-color: transparent;
+  }
+  .notif-item.notif-fyi .notif-actor { color: var(--text); }
+  .notif-item.notif-fyi .notif-body,
+  .notif-item.notif-fyi .notif-time { color: var(--muted); }
+  .notif-item.notif-fyi .notif-icon {
+    width: 18px; height: 18px;
+    font-size: 10px;
+  }
   .notif-item .notif-icon {
     flex-shrink: 0;
     width: 22px; height: 22px;
@@ -829,6 +862,16 @@
   .notif-item .notif-body { flex: 1; min-width: 0; }
   .notif-item .notif-actor { font-weight: 600; }
   .notif-item .notif-pr { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .notif-item .notif-preview {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-top: 2px;
+    font-style: italic;
+  }
   .notif-item .notif-time { color: var(--muted); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
   .notif-item .notif-bot-label {
     display: inline-block;
@@ -1026,8 +1069,8 @@
 
   <div id="notifications-view">
     <div class="notif-controls">
-      <button class="notif-filter-btn active" data-notif-filter="unread">Unread</button>
-      <button class="notif-filter-btn" data-notif-filter="read">Read</button>
+      <button class="notif-filter-btn active" data-notif-filter="needs-you">Needs you</button>
+      <button class="notif-filter-btn" data-notif-filter="all">All</button>
       <button class="notif-filter-btn" data-notif-filter="old">Old</button>
       <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
     </div>
@@ -1568,6 +1611,7 @@
       state: review.state,
       submittedAt: review.submitted_at,
       commitId: review.commit_id,
+      preview: snippet(review.body, 160),
     }));
   }
 
@@ -1747,7 +1791,7 @@
         (cachedTeammateApproved && cached.section !== 5)
         || (cachedUserApproved && cached.section !== 5)
         || (cached?.isDirect && cached.section !== 3);
-      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3, 5].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined && cached.additions !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && [1, 2, 3, 5].includes(cached.section) && !needsRerouteRecheck && cached.isDraft !== undefined && cached.reviewedBefore !== undefined && cached.comments !== undefined && cached.commentsV === 2 && cached.additions !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
         return;
       }
@@ -1760,10 +1804,27 @@
           ghJson(`/repos/${repo}/issues/${item.number}/comments?per_page=100`, token),
           ghJson(`/repos/${repo}/pulls/${item.number}/comments?per_page=100`, token),
         ]);
-        const comments = [...issueComments, ...reviewComments].map(c => ({
-          user: c.user?.login,
-          createdAt: c.created_at,
-        }));
+        const commentAuthorById = new Map(reviewComments.map(c => [c.id, c.user?.login]));
+        const comments = [
+          ...issueComments.map(c => ({
+            user: c.user?.login,
+            createdAt: c.created_at,
+            url: c.html_url,
+            path: c.path || null,
+            line: c.line ?? c.original_line ?? null,
+            preview: snippet(c.body, 160),
+            replyToUser: null,
+          })),
+          ...reviewComments.map(c => ({
+            user: c.user?.login,
+            createdAt: c.created_at,
+            url: c.html_url,
+            path: c.path || null,
+            line: c.line ?? c.original_line ?? null,
+            preview: snippet(c.body, 160),
+            replyToUser: c.in_reply_to_id ? (commentAuthorById.get(c.in_reply_to_id) || null) : null,
+          })),
+        ];
         const isDirect = (requested.users || []).some(u => u.login === USERNAME);
         const isTeam = (requested.teams || []).length > 0;
         const userReviews = reviews
@@ -1805,6 +1866,7 @@
           reviewedBefore: !!lastUserReview,
           reviews: normalizeReviews(reviews),
           comments,
+          commentsV: 2,
         };
       } catch (err) {
         console.warn(`enrich failed for ${prId}:`, err);
@@ -1897,7 +1959,7 @@
       // Cache fast-path: if updated_at hasn't bumped, reviews + comments + head SHA unchanged.
       // CI can change independently though — always re-check.
       const cached = cachedPRs[prId];
-      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined && cached.additions !== undefined && cached.reviewDecision !== undefined) {
+      if (cached && cached.updatedAt === item.updated_at && cached.section === 4 && cached.headSha && cached.pendingReviewers !== undefined && cached.pendingReviewerLogins !== undefined && cached.comments !== undefined && cached.commentsV === 2 && cached.additions !== undefined && cached.reviewDecision !== undefined) {
         const ciFailing = await checkCi(repo, cached.headSha);
         const reviewDecision = reviewDecisions.has(prId)
           ? reviewDecisions.get(prId)
@@ -1919,10 +1981,27 @@
         const pendingReviewers =
           pendingReviewerLogins.length +
           (prDetail.requested_teams || []).length;
-        const comments = [...issueComments, ...reviewComments].map(c => ({
-          user: c.user?.login,
-          createdAt: c.created_at,
-        }));
+        const commentAuthorById = new Map(reviewComments.map(c => [c.id, c.user?.login]));
+        const comments = [
+          ...issueComments.map(c => ({
+            user: c.user?.login,
+            createdAt: c.created_at,
+            url: c.html_url,
+            path: c.path || null,
+            line: c.line ?? c.original_line ?? null,
+            preview: snippet(c.body, 160),
+            replyToUser: null,
+          })),
+          ...reviewComments.map(c => ({
+            user: c.user?.login,
+            createdAt: c.created_at,
+            url: c.html_url,
+            path: c.path || null,
+            line: c.line ?? c.original_line ?? null,
+            preview: snippet(c.body, 160),
+            replyToUser: c.in_reply_to_id ? (commentAuthorById.get(c.in_reply_to_id) || null) : null,
+          })),
+        ];
         prs[prId] = {
           ...buildPRBase(prId, repo, 4, item, prDetail),
           headSha: sha,
@@ -1931,6 +2010,7 @@
           reviewDecision: reviewDecisions.has(prId) ? reviewDecisions.get(prId) : undefined,
           reviews: normalizeReviews(reviews),
           comments,
+          commentsV: 2,
           ciFailing,
         };
       } catch (err) {
@@ -1982,7 +2062,7 @@
         // Cache fast-path: if updated_at matches, reviews can't have changed
         const cached = cachedPRs[prId];
         if (cached && cached.updatedAt === prDetail.updated_at && cached.section === 5
-          && cached.comments !== undefined && cached.lastUserActivityAt !== undefined
+          && cached.comments !== undefined && cached.commentsV === 2 && cached.lastUserActivityAt !== undefined
           && cached.externalActivityAfterUser !== undefined && cached.additions !== undefined) {
           prs[prId] = applyCachedPR(cached, prDetail.title);
           return;
@@ -1994,10 +2074,27 @@
           ghJson(`/repos/${repo}/pulls/${number}/comments?per_page=100`, token),
           ghJson(`/repos/${repo}/pulls/${number}/commits?per_page=100`, token),
         ]);
-        const comments = [...issueComments, ...reviewComments].map(comment => ({
-          user: comment.user?.login,
-          createdAt: comment.created_at,
-        }));
+        const commentAuthorById = new Map(reviewComments.map(c => [c.id, c.user?.login]));
+        const comments = [
+          ...issueComments.map(comment => ({
+            user: comment.user?.login,
+            createdAt: comment.created_at,
+            url: comment.html_url,
+            path: comment.path || null,
+            line: comment.line ?? comment.original_line ?? null,
+            preview: snippet(comment.body, 160),
+            replyToUser: null,
+          })),
+          ...reviewComments.map(comment => ({
+            user: comment.user?.login,
+            createdAt: comment.created_at,
+            url: comment.html_url,
+            path: comment.path || null,
+            line: comment.line ?? comment.original_line ?? null,
+            preview: snippet(comment.body, 160),
+            replyToUser: comment.in_reply_to_id ? (commentAuthorById.get(comment.in_reply_to_id) || null) : null,
+          })),
+        ];
         const youReviewed = reviews.some(r => r.user?.login === USERNAME);
         const teammateReviewers = [...new Set(
           reviews
@@ -2033,6 +2130,7 @@
             reviewedBefore: true,
             reviews: normalizeReviews(reviews),
             comments,
+            commentsV: 2,
             lastUserActivityAt,
             needsAttention: true,
             externalActivityAfterUser,
@@ -2046,6 +2144,7 @@
           teammateReviewers,
           reviews: normalizeReviews(reviews),
           comments,
+          commentsV: 2,
           lastUserActivityAt,
           needsAttention: false,
           externalActivityAfterUser,
@@ -2073,7 +2172,7 @@
 
       const cached = cachedPRs[prId];
       if (cached && cached.updatedAt === item.updated_at && [3, 6].includes(cached.section)
-        && cached.comments !== undefined && cached.lastUserActivityAt !== undefined
+        && cached.comments !== undefined && cached.commentsV === 2 && cached.lastUserActivityAt !== undefined
         && cached.needsAttention !== undefined
         && cached.externalActivityAfterUser !== undefined && cached.additions !== undefined) {
         prs[prId] = applyCachedPR(cached, item.title);
@@ -2090,10 +2189,27 @@
         ]);
         if (prDetail.state !== 'open' || prDetail.draft) return;
 
-        const comments = [...issueComments, ...reviewComments].map(comment => ({
-          user: comment.user?.login,
-          createdAt: comment.created_at,
-        }));
+        const commentAuthorById = new Map(reviewComments.map(c => [c.id, c.user?.login]));
+        const comments = [
+          ...issueComments.map(comment => ({
+            user: comment.user?.login,
+            createdAt: comment.created_at,
+            url: comment.html_url,
+            path: comment.path || null,
+            line: comment.line ?? comment.original_line ?? null,
+            preview: snippet(comment.body, 160),
+            replyToUser: null,
+          })),
+          ...reviewComments.map(comment => ({
+            user: comment.user?.login,
+            createdAt: comment.created_at,
+            url: comment.html_url,
+            path: comment.path || null,
+            line: comment.line ?? comment.original_line ?? null,
+            preview: snippet(comment.body, 160),
+            replyToUser: comment.in_reply_to_id ? (commentAuthorById.get(comment.in_reply_to_id) || null) : null,
+          })),
+        ];
         const userCommentTimes = comments
           .filter(comment => comment.user === USERNAME)
           .map(comment => comment.createdAt);
@@ -2122,6 +2238,7 @@
           reviewedBefore: !!lastUserActivityAt,
           reviews: normalizeReviews(reviews),
           comments,
+          commentsV: 2,
           lastUserActivityAt,
           needsAttention,
           externalActivityAfterUser,
@@ -2261,6 +2378,21 @@
     if (days < 30) return `${days}d ago`;
     const months = Math.round(days / 30);
     return `${months}mo ago`;
+  }
+
+  function snippet(body, max) {
+    if (!body) return '';
+    let text = body
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/```[\s\S]*?```/g, ' [code] ')
+      .replace(/^\s*>.*$/gm, ' ')
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/[*_`#]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text.length > max) text = text.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
+    return text;
   }
 
   function reviewChips(pr) {
@@ -2995,6 +3127,12 @@
     try { return JSON.parse(localStorage.getItem(STORAGE_NOTIFICATIONS) || '[]'); } catch { return []; }
   }
   function saveNotifications(items) {
+    const botAutoReadMs = 24 * 60 * 60 * 1000;
+    for (const n of items) {
+      if (n.isBot && !n.readAt && (Date.now() - new Date(n.createdAt).getTime()) > botAutoReadMs) {
+        n.readAt = Date.now();
+      }
+    }
     // Expire read items older than 2 days
     const cutoff = Date.now() - 2 * 24 * 60 * 60 * 1000;
     const kept = items.filter(n => !n.readAt || n.readAt > cutoff);
@@ -3005,13 +3143,14 @@
     try { return JSON.parse(localStorage.getItem(STORAGE_NOTIF_PREFS) || '{}'); } catch { return {}; }
   }
 
-  let currentNotifFilter = 'unread';
+  let currentNotifFilter = 'needs-you';
 
   function notifIcon(type) {
     switch (type) {
       case 'review_approved': return '<div class="notif-icon notif-icon--approved">✓</div>';
       case 'review_changes_requested': return '<div class="notif-icon notif-icon--changes">!</div>';
       case 'comment_on_my_pr': return '<div class="notif-icon notif-icon--comment">💬</div>';
+      case 'comment_on_watched_pr': return '<div class="notif-icon notif-icon--comment">💬</div>';
       case 'reply_to_my_comment': return '<div class="notif-icon notif-icon--reply">↩</div>';
       case 'direct_request': return '<div class="notif-icon notif-icon--request">⬤</div>';
       case 'new_review': return '<div class="notif-icon notif-icon--comment">📝</div>';
@@ -3023,6 +3162,23 @@
     }
   }
 
+  function notifTier(n) {
+    if (n.isBot) return 'ambient';
+    switch (n.type) {
+      case 'reply_to_my_comment':
+      case 'review_changes_requested':
+      case 'mentioned':
+      case 'assigned':
+        return 'action';
+      case 'review_approved':
+        return n.onMyPR ? 'action' : 'fyi';
+      case 'comment_on_my_pr':
+        return n.onMyPR ? 'action' : 'fyi';
+      default:
+        return 'fyi';
+    }
+  }
+
   function notifLabel(n) {
     const actor = escapeHtml(n.actor || 'someone');
     const botTag = n.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
@@ -3030,6 +3186,7 @@
       case 'review_approved': return `<span class="notif-actor">${actor}</span>${botTag} approved`;
       case 'review_changes_requested': return `<span class="notif-actor">${actor}</span>${botTag} requested changes`;
       case 'comment_on_my_pr': return `<span class="notif-actor">${actor}</span>${botTag} commented`;
+      case 'comment_on_watched_pr': return `<span class="notif-actor">${actor}</span>${botTag} commented`;
       case 'reply_to_my_comment': return `<span class="notif-actor">${actor}</span>${botTag} replied to you`;
       case 'new_review': return `<span class="notif-actor">${actor}</span>${botTag} reviewed`;
       case 'mentioned': return `You were mentioned`;
@@ -3045,6 +3202,7 @@
       case 'review_approved': return 'approved';
       case 'review_changes_requested': return 'requested changes';
       case 'comment_on_my_pr': return 'commented';
+      case 'comment_on_watched_pr': return 'commented';
       case 'reply_to_my_comment': return 'replied to you';
       case 'direct_request': return 'requested your review';
       case 'new_review': return 'reviewed';
@@ -3057,7 +3215,7 @@
   }
 
   function groupNotifications(items) {
-    const GROUP_WINDOW_MS = 5 * 60 * 1000;
+    const GROUP_WINDOW_MS = 30 * 60 * 1000;
     const groups = [];
     const used = new Set();
     for (let i = 0; i < items.length; i++) {
@@ -3065,13 +3223,20 @@
       const n = items[i];
       const group = [n];
       used.add(i);
-      // Look for nearby items with the same actor + prId
-      if (n.actor && n.prId) {
+      // Bots roll up by PR; human activity stays actor- and time-scoped.
+      if (n.prId && (n.isBot || n.actor)) {
+        const nGroupKey = n.isBot ? `bot:${n.prId}` : `${n.actor}:${n.prId}`;
         const nTime = new Date(n.createdAt).getTime();
         for (let j = i + 1; j < items.length; j++) {
           if (used.has(j)) continue;
           const m = items[j];
-          if (m.actor !== n.actor || m.prId !== n.prId) continue;
+          const mGroupKey = m.isBot ? `bot:${m.prId}` : `${m.actor}:${m.prId}`;
+          if (mGroupKey !== nGroupKey || m.isBot !== n.isBot) continue;
+          if (n.isBot) {
+            group.push(m);
+            used.add(j);
+            continue;
+          }
           const mTime = new Date(m.createdAt).getTime();
           if (Math.abs(nTime - mTime) > GROUP_WINDOW_MS) continue;
           group.push(m);
@@ -3090,19 +3255,44 @@
     return `<div class="notif-actions"><button class="notif-action-btn" data-notif-action="read" data-notif-ids="${escapeHtml(ids)}">Mark read</button></div>`;
   }
 
+  function notifGroupTier(group) {
+    if (group.some(n => notifTier(n) === 'action')) return 'action';
+    if (group.some(n => notifTier(n) === 'fyi')) return 'fyi';
+    return 'ambient';
+  }
+
+  function notifTypeClass(type) {
+    switch (type) {
+      case 'reply_to_my_comment': return 'notif-type-reply';
+      case 'review_changes_requested': return 'notif-type-changes';
+      case 'review_approved': return 'notif-type-approved';
+      case 'mentioned': return 'notif-type-mentioned';
+      case 'assigned': return 'notif-type-assigned';
+      default: return '';
+    }
+  }
+
   function renderNotifGroup(group) {
     const primary = group[0];
+    const allBots = group.every(n => n.isBot);
     const isRead = group.every(n => n.readAt);
     const readClass = isRead ? 'read' : '';
     const ids = group.map(n => n.id).join(',');
+    const icon = allBots ? '<div class="notif-icon notif-icon--default">🤖</div>' : notifIcon(primary.type);
+    const iconPriority = ['direct_request', 'review_changes_requested', 'review_approved', 'reply_to_my_comment', 'new_review', 'comment_on_my_pr', 'comment_on_watched_pr', 'mentioned', 'team_mentioned', 'assigned', 'pr_closed'];
+    const primaryType = group.map(n => n.type).sort((a, b) => iconPriority.indexOf(a) - iconPriority.indexOf(b))[0] || primary.type;
+    const tier = notifGroupTier(group);
+    const tierClass = `notif-${tier}`;
+    const typeClass = tier === 'action' ? notifTypeClass(primaryType) : '';
 
     if (group.length === 1) {
-      return `<div class="notif-item ${readClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
+      return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
         <div class="notif-unread-dot"></div>
-        ${notifIcon(primary.type)}
+        ${icon}
         <div class="notif-body">
           <div>${notifLabel(primary)}</div>
           <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
+          <div class="notif-preview">${escapeHtml(primary.preview || '')}</div>
         </div>
         ${notifActionButtons(readClass, ids)}
         <div class="notif-time">${relativeTime(primary.createdAt)}</div>
@@ -3111,21 +3301,38 @@
     }
 
     // Multiple items: combine verbs
+    if (allBots) {
+      const commentCount = group.filter(n => ['comment_on_my_pr', 'reply_to_my_comment'].includes(n.type)).length;
+      const reviewCount = group.filter(n => ['review_approved', 'review_changes_requested', 'new_review'].includes(n.type)).length;
+      const summary = [];
+      if (commentCount) summary.push(`${commentCount} comment${commentCount === 1 ? '' : 's'}`);
+      if (reviewCount) summary.push(`${reviewCount} review${reviewCount === 1 ? '' : 's'}`);
+      const label = summary.length ? `🤖 bot activity · ${summary.join(', ')}` : '🤖 bot activity';
+      return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
+        <div class="notif-unread-dot"></div>
+        ${icon}
+        <div class="notif-body">
+          <div>${label}</div>
+          <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
+        </div>
+        ${notifActionButtons(readClass, ids)}
+        <div class="notif-time">${relativeTime(primary.createdAt)}</div>
+        <span class="notif-chevron" aria-hidden="true">›</span>
+      </div>`;
+    }
+
     const actor = escapeHtml(primary.actor || 'someone');
     const botTag = primary.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
     const verbs = [...new Set(group.map(n => actionVerb(n.type)))];
     const verbText = verbs.join(' and ');
-    // Pick the most prominent icon (prefer review states over comments)
-    const iconPriority = ['direct_request', 'review_changes_requested', 'review_approved', 'reply_to_my_comment', 'new_review', 'comment_on_my_pr', 'mentioned', 'team_mentioned', 'assigned', 'pr_closed'];
-    const bestType = group.map(n => n.type).sort((a, b) => iconPriority.indexOf(a) - iconPriority.indexOf(b))[0] || primary.type;
-    // Pick any severity tags
 
-    return `<div class="notif-item ${readClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
+    return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
       <div class="notif-unread-dot"></div>
-      ${notifIcon(bestType)}
+      ${notifIcon(primaryType)}
       <div class="notif-body">
         <div><span class="notif-actor">${actor}</span>${botTag} ${verbText}</div>
         <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
+        <div class="notif-preview">${escapeHtml(primary.preview || '')}</div>
       </div>
       ${notifActionButtons(readClass, ids)}
       <div class="notif-time">${relativeTime(primary.createdAt)}</div>
@@ -3135,7 +3342,7 @@
 
   function renderNotifications() {
     const all = loadNotifications();
-    const unreadCount = all.filter(n => !n.readAt).length;
+    const unreadCount = all.filter(n => !n.readAt && !n.isBot).length;
     notifBadgeEl.textContent = unreadCount > 0 ? String(unreadCount) : '';
 
     // Disable mark-all when nothing unread
@@ -3146,22 +3353,35 @@
     const OLD_THRESHOLD_MS = 4 * 60 * 60 * 1000;
     const now = Date.now();
     function isOld(n) { return n.readAt && (now - n.readAt) > OLD_THRESHOLD_MS; }
-    function isRecentRead(n) { return n.readAt && (now - n.readAt) <= OLD_THRESHOLD_MS; }
 
     const allGrouped = groupNotifications(all);
     let visible;
-    if (currentNotifFilter === 'unread') visible = allGrouped.filter(g => g.some(n => !n.readAt));
-    else if (currentNotifFilter === 'read') visible = allGrouped.filter(g => g.every(n => !!n.readAt) && g.some(n => isRecentRead(n)));
+    if (currentNotifFilter === 'needs-you') visible = allGrouped.filter(g => g.some(n => notifTier(n) === 'action' && !n.readAt));
+    else if (currentNotifFilter === 'all') visible = allGrouped.filter(g => !g.every(n => isOld(n)));
     else if (currentNotifFilter === 'old') visible = allGrouped.filter(g => g.every(n => !!n.readAt) && g.every(n => isOld(n)));
     else visible = allGrouped;
 
     if (visible.length === 0) {
-      const msg = currentNotifFilter === 'unread'
-        ? "You're all caught up.<br><span style=\"font-size:12px\">New PR activity will appear here.</span>"
+      const msg = currentNotifFilter === 'needs-you'
+        ? 'Nothing needs your attention.'
         : currentNotifFilter === 'old'
           ? 'No old notifications.'
-          : 'No read notifications.';
+          : 'No notifications.';
       notifListEl.innerHTML = `<div class="notif-empty">${msg}</div>`;
+      return;
+    }
+
+    if (['needs-you', 'all'].includes(currentNotifFilter)) {
+      const needsYou = visible.filter(g => notifGroupTier(g) === 'action');
+      const activity = visible.filter(g => notifGroupTier(g) !== 'action');
+      const sections = [];
+      if (needsYou.length) {
+        sections.push(`<div class="notif-group"><div class="notif-group-label">Needs you · ${needsYou.length}</div>${needsYou.map(renderNotifGroup).join('')}</div>`);
+      }
+      if (activity.length) {
+        sections.push(`<div class="notif-group"><div class="notif-group-label">Activity · ${activity.length}</div>${activity.map(renderNotifGroup).join('')}</div>`);
+      }
+      notifListEl.innerHTML = sections.join('');
       return;
     }
 
@@ -3183,9 +3403,10 @@
         const oldReviewKeys = new Set((old?.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
         for (const review of (pr.reviews || [])) {
           if (review.user === pr.author) continue;
+          if (review.state === 'COMMENTED') continue;
           const rKey = `${review.user}:${review.submittedAt}`;
           if (oldReviewKeys.has(rKey)) continue;
-          const isBot = review.user && review.user.endsWith('[bot]');
+          const isBot = review.user && (review.user === AGENT_BOT_LOGIN || review.user.endsWith('[bot]'));
           let type;
           if (review.state === 'APPROVED') type = 'review_approved';
           else if (review.state === 'CHANGES_REQUESTED') type = 'review_changes_requested';
@@ -3197,7 +3418,9 @@
             key, type,
             actor: review.user,
             isBot,
+            onMyPR: true,
             prId, prTitle: pr.title, prUrl: pr.url,
+            preview: review.preview || '',
             createdAt: review.submittedAt || new Date().toISOString(),
             readAt: null,
           });
@@ -3209,17 +3432,24 @@
         const oldCommentKeys = new Set((old?.comments || []).map(c => `${c.user}:${c.createdAt}`));
         for (const comment of (pr.comments || [])) {
           if (comment.user === pr.author) continue;
+          if (comment.user === USERNAME) continue;
           const cKey = `${comment.user}:${comment.createdAt}`;
           if (oldCommentKeys.has(cKey)) continue;
-          const isBot = comment.user && comment.user.endsWith('[bot]');
-          const key = `comment:${prId}:${comment.user}:${comment.createdAt}`;
+          const isBot = comment.user && (comment.user === AGENT_BOT_LOGIN || comment.user.endsWith('[bot]'));
+          const type = comment.replyToUser === USERNAME ? 'reply_to_my_comment' : 'comment_on_my_pr';
+          const key = `${type}:${prId}:${comment.user}:${comment.createdAt}`;
           if (existingKeys.has(key)) continue;
           items.unshift({
             id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            key, type: 'comment_on_my_pr',
+            key, type,
             actor: comment.user,
             isBot,
+            onMyPR: true,
             prId, prTitle: pr.title, prUrl: pr.url,
+            preview: comment.preview || '',
+            commentUrl: comment.url || null,
+            path: comment.path || null,
+            line: comment.line || null,
             createdAt: comment.createdAt || new Date().toISOString(),
             readAt: null,
           });
@@ -3234,18 +3464,24 @@
         for (const comment of (pr.comments || [])) {
           if (comment.user === USERNAME) continue;
           // Skip bot comments on other people's PRs — only useful on your own
-          if (comment.user && comment.user.endsWith('[bot]')) continue;
+          if (comment.user && (comment.user === AGENT_BOT_LOGIN || comment.user.endsWith('[bot]'))) continue;
           const cKey = `${comment.user}:${comment.createdAt}`;
           if (oldCommentKeys.has(cKey)) continue;
-          const isBot = comment.user && comment.user.endsWith('[bot]');
-          const key = `review-comment:${prId}:${comment.user}:${comment.createdAt}`;
+          const isBot = comment.user && (comment.user === AGENT_BOT_LOGIN || comment.user.endsWith('[bot]'));
+          const type = comment.replyToUser === USERNAME ? 'reply_to_my_comment' : 'comment_on_watched_pr';
+          const key = `${type}:${prId}:${comment.user}:${comment.createdAt}`;
           if (existingKeys.has(key)) continue;
           items.unshift({
             id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            key, type: 'comment_on_my_pr',
+            key, type,
             actor: comment.user,
             isBot,
+            onMyPR: false,
             prId, prTitle: pr.title, prUrl: pr.url,
+            preview: comment.preview || '',
+            commentUrl: comment.url || null,
+            path: comment.path || null,
+            line: comment.line || null,
             createdAt: comment.createdAt || new Date().toISOString(),
             readAt: null,
           });
@@ -3368,7 +3604,9 @@
       saveNotifications(items);
       renderNotifications();
     }
-    if (openUrl) window.open(openUrl, '_blank');
+    const commentUrl = items.find(n => nids.has(n.id) && n.commentUrl)?.commentUrl;
+    if (commentUrl) window.open(commentUrl, '_blank');
+    else if (openUrl) window.open(openUrl, '_blank');
   });
 
   // Mark all read
@@ -3409,7 +3647,7 @@
     renderCachedIfAny(); // instant paint from previous snapshot
     // Restore persisted view and filter state
     const savedFilter = localStorage.getItem(STORAGE_NOTIF_FILTER);
-    if (savedFilter && ['unread', 'read', 'old'].includes(savedFilter)) {
+    if (savedFilter && ['needs-you', 'all', 'old'].includes(savedFilter)) {
       currentNotifFilter = savedFilter;
       document.querySelectorAll('.notif-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.notifFilter === savedFilter));
     }
