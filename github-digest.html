@@ -2280,7 +2280,8 @@
     const latestUserDecision = userReviews.find(review =>
       review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED');
     const otherReviews = [...latestByReviewer.values()].filter(review => review.user !== USERNAME);
-    const otherApprovals = otherReviews.filter(review => review.state === 'APPROVED').length;
+    const otherApprovalReviews = otherReviews.filter(review => review.state === 'APPROVED');
+    const otherApprovals = otherApprovalReviews.length;
     const otherChangeReviews = otherReviews.filter(review => review.state === 'CHANGES_REQUESTED');
     const otherChanges = otherChangeReviews.length;
     const approvalSufficient = isApprovalSufficient(
@@ -2317,7 +2318,7 @@
       indicators.push(indicator(
         'approved',
         `✓ ${otherApprovals} approved`,
-        `${otherApprovals} other approval${otherApprovals === 1 ? '' : 's'}`
+        `Approved by ${otherApprovalReviews.map(review => `@${review.user}`).join(', ')}`
       ));
     }
     if (otherChanges > 0) {
