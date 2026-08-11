@@ -564,6 +564,27 @@
   #spinner.spinning { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .settings-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .settings-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .settings-section h3 { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--text); }
+  .settings-tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .settings-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    padding: 3px 8px; font-size: 12px; color: var(--text);
+  }
+  .settings-tag button {
+    background: none !important; border: none !important; color: var(--muted) !important;
+    cursor: pointer; font-size: 14px; padding: 0 2px !important; line-height: 1;
+  }
+  .settings-tag button:hover { color: var(--text) !important; }
+  .settings-add-row { display: flex; gap: 6px; }
+  .settings-add-row input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); padding: 4px 8px; font-size: 12px;
+  }
+  .settings-add-row button { font-size: 12px; }
+
   .footer-note {
     font-size: 12px;
     color: var(--muted);
@@ -675,6 +696,244 @@
   }
 </style>
 </head>
+<!-- Notifications tab CSS injected below -->
+<style>
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .view-tab {
+    padding: 10px 16px 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s;
+    letter-spacing: 0.01em;
+  }
+  .view-tab:hover {
+    color: var(--text);
+    background: transparent !important;
+    filter: none !important;
+  }
+  .view-tab.active {
+    color: var(--text);
+    border-bottom-color: #1f6feb !important;
+    background: transparent !important;
+    filter: none !important;
+  }
+  .view-tab .notif-badge {
+    display: inline-block;
+    background: #1f6feb;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .view-tab .notif-badge:empty { display: none; }
+
+  #prs-view { display: block; }
+  #notifications-view { display: none; }
+  #notifications-view.active { display: block; }
+  #prs-view.hidden { display: none; }
+
+  .notif-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .notif-filter-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .notif-filter-btn:hover { color: var(--text); border-color: #484f58; background: var(--panel); }
+  .notif-filter-btn.active { background: rgba(31, 111, 235, .18); border-color: #1f6feb; color: #58a6ff; }
+
+  .notif-list { display: flex; flex-direction: column; gap: 2px; padding-bottom: 40px; }
+
+  .notif-group + .notif-group { margin-top: 18px; }
+  .notif-group-label {
+    margin: 0 0 6px;
+    padding: 0 2px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.12s, border-color 0.12s;
+    cursor: pointer;
+  }
+  .notif-item:hover { background: #1c2128; border-color: #484f58; }
+  .notif-item:focus-visible { outline: 2px solid #1f6feb; outline-offset: 2px; }
+  .notif-item.read {
+    opacity: 1;
+    background: transparent;
+    border-color: transparent;
+  }
+  .notif-item.read .notif-body,
+  .notif-item.read .notif-time,
+  .notif-item.read .notif-pr { color: var(--muted); }
+  .notif-item.read:hover { background: #1c2128; border-color: #30363d; }
+  .notif-item .notif-icon {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .notif-icon--approved { background: rgba(63, 185, 80, .15); color: #3fb950; }
+  .notif-icon--changes { background: rgba(210, 153, 34, .15); color: #d29922; }
+  .notif-icon--comment { background: rgba(31, 111, 235, .15); color: #58a6ff; }
+  .notif-icon--reply { background: rgba(163, 113, 247, .15); color: #a371f7; }
+  .notif-icon--request { background: rgba(248, 81, 73, .15); color: #f85149; }
+  .notif-icon--mention { background: rgba(210, 153, 34, .15); color: #d29922; }
+  .notif-icon--closed { background: rgba(163, 113, 247, .15); color: #a371f7; }
+  .notif-icon--assigned { background: rgba(31, 111, 235, .15); color: #58a6ff; }
+  .notif-icon--team { background: rgba(210, 153, 34, .15); color: #d29922; }
+  .notif-icon--default { background: rgba(139, 148, 158, .15); color: var(--muted); }
+  .notif-item .notif-body { flex: 1; min-width: 0; }
+  .notif-item .notif-actor { font-weight: 600; }
+  .notif-item .notif-pr { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .notif-item .notif-time { color: var(--muted); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+  .notif-item .notif-bot-label {
+    display: inline-block;
+    font-size: 11px;
+    background: transparent;
+    color: var(--muted);
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    margin-left: 6px;
+    line-height: 1;
+    vertical-align: 1px;
+  }
+  .notif-item .notif-unread-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #1f6feb;
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+  .notif-item.read .notif-unread-dot { background: transparent; }
+  .notif-item .notif-chevron {
+    color: var(--muted);
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .notif-item:hover .notif-chevron { opacity: 0.6; }
+
+  .notif-severity {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .notif-severity--action { background: rgba(248, 81, 73, .15); color: #f85149; }
+  .notif-severity--review { background: rgba(210, 153, 34, .15); color: #d29922; }
+
+  .notif-item .notif-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .notif-item:hover .notif-actions { opacity: 1; }
+  .notif-action-btn {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    color: var(--muted) !important;
+    cursor: pointer !important;
+    white-space: nowrap;
+  }
+  .notif-action-btn:hover {
+    color: var(--text) !important;
+    border-color: #484f58 !important;
+    background: #1c2128 !important;
+    filter: none !important;
+  }
+
+  .notif-empty {
+    display: grid;
+    place-items: center;
+    min-height: 180px;
+    margin-top: 16px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .notif-mark-all {
+    margin-left: 8px;
+    padding-left: 16px;
+    border-left: 1px solid var(--border);
+    font-size: 12px;
+    color: #1f6feb;
+    background: none;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    cursor: pointer;
+    padding: 4px 8px 4px 16px;
+    border-radius: 0 !important;
+  }
+  .notif-mark-all:hover { text-decoration: underline; }
+  .notif-mark-all:disabled {
+    color: var(--muted);
+    cursor: default;
+    text-decoration: none !important;
+  }
+</style>
 <body>
 <div class="wrap">
 
@@ -715,19 +974,67 @@
       <button id="settings-close" class="icon-button" aria-label="Close settings">×</button>
     </div>
     <div class="settings-body">
-      <p class="settings-copy">Ignored CI checks do not appear anywhere in the dashboard. Matching is case-insensitive and checks whether the job name contains the text.</p>
-      <div id="ignore-rules" class="ignore-rules"></div>
-      <form id="ignore-form" class="ignore-form">
-        <input id="ignore-repo" placeholder="Repository or *" aria-label="Repository scope">
-        <input id="ignore-pattern" placeholder="Job name contains…" aria-label="Job name pattern" required>
-        <button type="submit">Add rule</button>
-      </form>
+      <div class="settings-section">
+        <h3>Extra teammates</h3>
+        <p class="settings-copy">Logins treated as teammates beyond the GitHub team roster.</p>
+        <div id="extra-teammates-tags" class="settings-tag-list"></div>
+        <div class="settings-add-row">
+          <input id="extra-teammate-input" placeholder="GitHub login" aria-label="Add extra teammate">
+          <button type="button" id="extra-teammate-add">Add</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Excluded teammates</h3>
+        <p class="settings-copy">Team members to hide from the dashboard.</p>
+        <div id="excluded-teammates-tags" class="settings-tag-list"></div>
+        <div class="settings-add-row">
+          <input id="excluded-teammate-input" placeholder="GitHub login" aria-label="Add excluded teammate">
+          <button type="button" id="excluded-teammate-add">Add</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Agent bot</h3>
+        <p class="settings-copy">AI bot whose PRs are treated as yours when you're assigned.</p>
+        <div class="settings-add-row">
+          <input id="agent-bot-input" aria-label="Agent bot login">
+          <button type="button" id="agent-bot-save">Save</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Ignored CI checks</h3>
+        <p class="settings-copy">Matching is case-insensitive. Checks whether the job name contains the text.</p>
+        <div id="ignore-rules" class="ignore-rules"></div>
+        <form id="ignore-form" class="ignore-form">
+          <input id="ignore-repo" placeholder="Repository or *" aria-label="Repository scope">
+          <input id="ignore-pattern" placeholder="Job name contains…" aria-label="Job name pattern" required>
+          <button type="submit">Add rule</button>
+        </form>
+      </div>
     </div>
   </dialog>
 
   <div id="summary" hidden></div>
   <div id="error-bar" class="error-bar" hidden></div>
 
+  <div class="view-tabs" id="view-tabs">
+    <button class="view-tab active" data-view="prs">PRs</button>
+    <button class="view-tab" data-view="notifications">Notifications <span class="notif-badge" id="notif-badge"></span></button>
+  </div>
+
+  <div id="notifications-view">
+    <div class="notif-controls">
+      <button class="notif-filter-btn active" data-notif-filter="unread">Unread</button>
+      <button class="notif-filter-btn" data-notif-filter="read">Read</button>
+      <button class="notif-filter-btn" data-notif-filter="old">Old</button>
+      <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
+  </div>
+
+  <div id="prs-view">
   <div class="filters" id="filters" hidden>
     <label>Author:</label>
     <input id="author-search" class="author-search" type="text" placeholder="type to filter…" autocomplete="off">
@@ -809,6 +1116,7 @@
   <div class="footer-note">
     Background notifications are handled by the watcher in <code>.gh-digest/</code> — this dashboard is read-only.
   </div>
+  </div><!-- /prs-view -->
 </div>
 
 </div>
@@ -818,8 +1126,21 @@
   // ---- Config ----
   const ORG = 'ardoq';
   const TEAM = 'team-ai';
-  const EXTRA_TEAMMATES = ['saksam760', 'nataliadeluna']; // treated as teammates beyond the GitHub team roster
-  const EXCLUDED_TEAMMATES = ['sophiebosio']; // on the GitHub team roster but not treated as a teammate here
+  // ---- Per-user config (edit these or override via localStorage gh_digest_user_config) ----
+  const DEFAULT_USER_CONFIG = {
+    extraTeammates: ['saksam760', 'nataliadeluna'],   // logins treated as teammates beyond the GitHub team roster
+    excludedTeammates: ['sophiebosio'],               // on the GitHub team roster but excluded here
+    agentBotLogin: 'Claudette2-0',                    // AI agent bot whose PRs are treated as yours when assigned
+    defaultIgnoredCi: [
+      { repo: '*', pattern: 'osv' },
+      { repo: 'ardoq/ardoq-packages', pattern: 'run-ai-tests / run-playwright-tag' },
+    ],
+  };
+  const userConfigRaw = localStorage.getItem('gh_digest_user_config');
+  const USER_CONFIG = userConfigRaw ? { ...DEFAULT_USER_CONFIG, ...JSON.parse(userConfigRaw) } : DEFAULT_USER_CONFIG;
+  const EXTRA_TEAMMATES = USER_CONFIG.extraTeammates;
+  const EXCLUDED_TEAMMATES = USER_CONFIG.excludedTeammates;
+  const AGENT_BOT_LOGIN = USER_CONFIG.agentBotLogin;
   const STORAGE_TOKEN = 'gh_token';
   const STORAGE_USERNAME = 'gh_username';
   let USERNAME = localStorage.getItem(STORAGE_USERNAME) || '';
@@ -835,10 +1156,11 @@
   const STORAGE_COLLAPSED_SECTIONS = 'gh_digest_collapsed_sections';
   const STORAGE_TEAMMATES_DATA = 'gh_digest_team_members';
   const STORAGE_IGNORED_CI = 'gh_digest_ignored_ci';
-  const DEFAULT_IGNORED_CI = [
-    { repo: '*', pattern: 'osv' },
-    { repo: 'ardoq/ardoq-packages', pattern: 'run-ai-tests / run-playwright-tag' },
-  ];
+  const STORAGE_NOTIFICATIONS = 'gh_digest_notifications';
+  const STORAGE_NOTIF_PREFS = 'gh_digest_notification_prefs';
+  const STORAGE_ACTIVE_VIEW = 'gh_digest_active_view';
+  const STORAGE_NOTIF_FILTER = 'gh_digest_notif_filter';
+  const DEFAULT_IGNORED_CI = USER_CONFIG.defaultIgnoredCi;
   const TEAMMATES_TTL_MS = 24 * 60 * 60 * 1000;
   const AUTO_REFRESH_MS = 3 * 60 * 1000;
   const STALE_DAYS = 30;
@@ -1226,6 +1548,18 @@
     );
   }
 
+  async function fetchExtraNotifications(token) {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const list = await ghJson(
+      `/notifications?all=true&since=${encodeURIComponent(since)}&per_page=50`,
+      token,
+    );
+    return list.filter(n =>
+      ['mention', 'comment', 'state_change', 'assign', 'team_mention'].includes(n.reason)
+      && n.subject?.type === 'PullRequest'
+    );
+  }
+
   // ---- PR enrichment helpers ----
 
   function normalizeReviews(rawReviews) {
@@ -1329,7 +1663,7 @@
     const teammateReviewSearches = searchByTeammates('review-requested', teammateLoginsForSearch, token)
       .catch(err => { console.warn('teammate review-requested fetch failed:', err); return []; });
 
-    const [reviewItems, teamReviewItems, authoredItems, assignedItems, teammateReviewItems, notifications] = await Promise.all([
+    const [reviewItems, teamReviewItems, authoredItems, assignedItems, teammateReviewItems, notifications, extraNotifs] = await Promise.all([
       search(reviewQ, token),
       search(teamReviewQ, token).catch(err => { console.warn('team-review-requested fetch failed:', err); return []; }),
       search(authoredQ, token),
@@ -1337,6 +1671,10 @@
       teammateReviewSearches,
       fetchRelevantNotifications(token).catch(err => {
         console.warn('notifications fetch failed:', err);
+        return [];
+      }),
+      fetchExtraNotifications(token).catch(err => {
+        console.warn('extra notifications fetch failed:', err);
         return [];
       }),
     ]);
@@ -1353,27 +1691,27 @@
     }
     const allReviewItems = [...reviewItemsMap.values()];
 
-    // Claudette-authored PRs where a teammate has been asked to review.
-    // Can't search `author:Claudette2-0` directly (GitHub rejects bot accounts),
+    // Agent-bot-authored PRs where a teammate has been asked to review.
+    // Can't search `author:<bot>` directly (GitHub rejects bot accounts),
     // so we derive from teammates' review-requested lists.
-    const claudetteItemsMap = new Map();
+    const agentBotItemsMap = new Map();
     for (const item of teammateReviewItems) {
-      if (item.user?.login !== 'Claudette2-0') continue;
+      if (item.user?.login !== AGENT_BOT_LOGIN) continue;
       const repo = repoFromIssue(item);
       if (!repo) continue;
-      claudetteItemsMap.set(`${repo}#${item.number}`, item);
+      agentBotItemsMap.set(`${repo}#${item.number}`, item);
     }
-    const claudetteItems = [...claudetteItemsMap.values()];
+    const agentBotItems = [...agentBotItemsMap.values()];
 
-    // Section 4 sources: PRs you authored OR PRs assigned to you that were opened by claudette (AI agent PRs).
-    // Also include Claudette-authored PRs that name you as an assignee, since GitHub's
+    // Section 4 sources: PRs you authored OR PRs assigned to you that were opened by the agent bot.
+    // Also include agent-bot-authored PRs that name you as an assignee, since GitHub's
     // assignee search occasionally misses freshly-assigned PRs.
-    const claudetteAssigned = [
-      ...assignedItems.filter(item => item.user?.login === 'Claudette2-0'),
-      ...claudetteItems.filter(item => (item.assignees || []).some(a => a.login === USERNAME)),
+    const agentBotAssigned = [
+      ...assignedItems.filter(item => item.user?.login === AGENT_BOT_LOGIN),
+      ...agentBotItems.filter(item => (item.assignees || []).some(a => a.login === USERNAME)),
     ];
     const myItemsMap = new Map();
-    for (const item of [...authoredItems, ...claudetteAssigned]) {
+    for (const item of [...authoredItems, ...agentBotAssigned]) {
       const repo = repoFromIssue(item);
       if (!repo) continue;
       myItemsMap.set(`${repo}#${item.number}`, item);
@@ -1473,10 +1811,10 @@
       }
     }));
 
-    // Claudette-authored PRs with a teammate as reviewer/assignee → team requests.
+    // Agent-bot-authored PRs with a teammate as reviewer/assignee → team requests.
     // These don't surface via review-requested:USERNAME because the request is on the
     // teammate, not on you or your team.
-    await Promise.all(claudetteItems.map(async (item) => {
+    await Promise.all(agentBotItems.map(async (item) => {
       const repo = repoFromIssue(item);
       if (!repo) return;
       const prId = `${repo}#${item.number}`;
@@ -1499,14 +1837,14 @@
         const reviews = await ghJson(`/repos/${repo}/pulls/${item.number}/reviews?per_page=100`, token);
         prs[prId] = {
           ...buildPRBase(prId, repo, 3, item, prDetail),
-          authorIsTeammate: false, // Claudette is a bot, never a teammate
+          authorIsTeammate: false, // agent bot is never a teammate
           isDirect: false,
           isTeam: false,
           lastUserReviewAt: null,
           reviews: normalizeReviews(reviews),
         };
       } catch (err) {
-        console.warn(`claudette team-request enrich failed for ${prId}:`, err);
+        console.warn(`agent bot team-request enrich failed for ${prId}:`, err);
       }
     }));
 
@@ -1813,13 +2151,13 @@
       };
     }
 
-    // Claudette-authored PRs assigned to a teammate also belong in section 7.
-    // GitHub rejects `author:Claudette2-0` in search, so we search by
-    // `assignee:<teammate>` across all teammates and filter for Claudette authorship.
-    const claudetteAssignedToTeammate = await searchByTeammates('assignee', teammateLogins, token, `updated:>=${fourteenDaysAgo}`)
-      .catch(err => { console.warn('claudette assignee fetch failed:', err); return []; });
-    for (const item of claudetteAssignedToTeammate) {
-      if (item.user?.login !== 'Claudette2-0') continue;
+    // Agent-bot-authored PRs assigned to a teammate also belong in section 7.
+    // GitHub rejects `author:<bot>` in search, so we search by
+    // `assignee:<teammate>` across all teammates and filter for agent bot authorship.
+    const agentBotAssignedToTeammate = await searchByTeammates('assignee', teammateLogins, token, `updated:>=${fourteenDaysAgo}`)
+      .catch(err => { console.warn('agent bot assignee fetch failed:', err); return []; });
+    for (const item of agentBotAssignedToTeammate) {
+      if (item.user?.login !== AGENT_BOT_LOGIN) continue;
       const repo = repoFromIssue(item);
       if (!repo) continue;
       const prId = `${repo}#${item.number}`;
@@ -1831,7 +2169,24 @@
       };
     }
 
-    return { prs, timestamp: new Date().toISOString() };
+    // Normalize extra notifications for storage (compact shape)
+    const mentions = extraNotifs.map(n => {
+      const urlMatch = (n.subject?.url || '').match(/\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)/);
+      const repo = urlMatch ? urlMatch[1] : null;
+      const number = urlMatch ? parseInt(urlMatch[2], 10) : null;
+      return {
+        id: n.id,
+        reason: n.reason,
+        repo,
+        number,
+        prId: repo && number ? `${repo}#${number}` : null,
+        title: n.subject?.title || '',
+        updatedAt: n.updated_at,
+        url: repo && number ? `https://github.com/${repo}/pull/${number}` : null,
+      };
+    }).filter(m => m.prId);
+
+    return { prs, mentions, timestamp: new Date().toISOString() };
   }
 
   // ---- Diff for change badges ----
@@ -2502,6 +2857,7 @@
       render(fresh, badges);
       showSummary(badges, prevSnapshot?.timestamp);
       setLastRefreshLabel();
+      emitNotificationEvents(prevSnapshot, fresh);
     } catch (err) {
       console.error(err);
       if (err instanceof RateLimitError) {
@@ -2527,8 +2883,78 @@
   }
 
   $('refresh-btn').addEventListener('click', refresh);
+  // ---- User config UI ----
+  function persistUserConfig() {
+    const cfg = {
+      extraTeammates: [...EXTRA_TEAMMATES],
+      excludedTeammates: [...EXCLUDED_TEAMMATES],
+      agentBotLogin: AGENT_BOT_LOGIN,
+      defaultIgnoredCi: DEFAULT_IGNORED_CI,
+    };
+    localStorage.setItem('gh_digest_user_config', JSON.stringify(cfg));
+  }
+
+  function renderTagList(containerId, items, onRemove) {
+    const el = $(containerId);
+    el.innerHTML = items.length
+      ? items.map((item, i) => `<span class="settings-tag">${escapeHtml(item)}<button type="button" data-tag-index="${i}">×</button></span>`).join('')
+      : '<span style="color:var(--muted);font-size:12px">None</span>';
+    el.querySelectorAll('[data-tag-index]').forEach(btn => {
+      btn.addEventListener('click', () => { onRemove(Number(btn.dataset.tagIndex)); });
+    });
+  }
+
+  function renderUserConfigUI() {
+    renderTagList('extra-teammates-tags', EXTRA_TEAMMATES, i => {
+      EXTRA_TEAMMATES.splice(i, 1);
+      persistUserConfig();
+      renderUserConfigUI();
+    });
+    renderTagList('excluded-teammates-tags', EXCLUDED_TEAMMATES, i => {
+      EXCLUDED_TEAMMATES.splice(i, 1);
+      persistUserConfig();
+      renderUserConfigUI();
+    });
+    $('agent-bot-input').value = AGENT_BOT_LOGIN;
+  }
+
+  $('extra-teammate-add').addEventListener('click', () => {
+    const input = $('extra-teammate-input');
+    const val = input.value.trim();
+    if (!val || EXTRA_TEAMMATES.includes(val)) return;
+    EXTRA_TEAMMATES.push(val);
+    persistUserConfig();
+    input.value = '';
+    renderUserConfigUI();
+  });
+
+  $('excluded-teammate-add').addEventListener('click', () => {
+    const input = $('excluded-teammate-input');
+    const val = input.value.trim();
+    if (!val || EXCLUDED_TEAMMATES.includes(val)) return;
+    EXCLUDED_TEAMMATES.push(val);
+    persistUserConfig();
+    input.value = '';
+    renderUserConfigUI();
+  });
+
+  $('agent-bot-save').addEventListener('click', () => {
+    const val = $('agent-bot-input').value.trim();
+    if (val) {
+      // Can't reassign const, but we need to update the reference used everywhere.
+      // The config object is the source of truth; reload applies it.
+      const cfg = JSON.parse(localStorage.getItem('gh_digest_user_config') || '{}');
+      cfg.agentBotLogin = val;
+      localStorage.setItem('gh_digest_user_config', JSON.stringify(cfg));
+      // Show confirmation
+      $('agent-bot-save').textContent = 'Saved ✓';
+      setTimeout(() => { $('agent-bot-save').textContent = 'Save'; }, 1500);
+    }
+  });
+
   $('settings-btn').addEventListener('click', () => {
     renderIgnoredCiRules();
+    renderUserConfigUI();
     settingsDialog.showModal();
   });
   $('settings-close').addEventListener('click', () => settingsDialog.close());
@@ -2557,6 +2983,404 @@
   });
 
   // ---- Boot ----
+
+  // ---- Notifications ----
+  const notifBadgeEl = $('notif-badge');
+  const notifListEl = $('notif-list');
+  const notifViewEl = $('notifications-view');
+  const prsViewEl = $('prs-view');
+
+  function loadNotifications() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_NOTIFICATIONS) || '[]'); } catch { return []; }
+  }
+  function saveNotifications(items) {
+    // Expire read items older than 2 days
+    const cutoff = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    const kept = items.filter(n => !n.readAt || n.readAt > cutoff);
+    localStorage.setItem(STORAGE_NOTIFICATIONS, JSON.stringify(kept));
+  }
+
+  function loadNotifPrefs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_NOTIF_PREFS) || '{}'); } catch { return {}; }
+  }
+
+  let currentNotifFilter = 'unread';
+
+  function notifIcon(type) {
+    switch (type) {
+      case 'review_approved': return '<div class="notif-icon notif-icon--approved">✓</div>';
+      case 'review_changes_requested': return '<div class="notif-icon notif-icon--changes">!</div>';
+      case 'comment_on_my_pr': return '<div class="notif-icon notif-icon--comment">💬</div>';
+      case 'reply_to_my_comment': return '<div class="notif-icon notif-icon--reply">↩</div>';
+      case 'direct_request': return '<div class="notif-icon notif-icon--request">⬤</div>';
+      case 'new_review': return '<div class="notif-icon notif-icon--comment">📝</div>';
+      case 'mentioned': return '<div class="notif-icon notif-icon--mention">@</div>';
+      case 'pr_closed': return '<div class="notif-icon notif-icon--closed">⊘</div>';
+      case 'assigned': return '<div class="notif-icon notif-icon--assigned">←</div>';
+      case 'team_mentioned': return '<div class="notif-icon notif-icon--team">@</div>';
+      default: return '<div class="notif-icon notif-icon--default">•</div>';
+    }
+  }
+
+  function notifLabel(n) {
+    const actor = escapeHtml(n.actor || 'someone');
+    const botTag = n.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
+    switch (n.type) {
+      case 'review_approved': return `<span class="notif-actor">${actor}</span>${botTag} approved`;
+      case 'review_changes_requested': return `<span class="notif-actor">${actor}</span>${botTag} requested changes`;
+      case 'comment_on_my_pr': return `<span class="notif-actor">${actor}</span>${botTag} commented`;
+      case 'reply_to_my_comment': return `<span class="notif-actor">${actor}</span>${botTag} replied to you`;
+      case 'new_review': return `<span class="notif-actor">${actor}</span>${botTag} reviewed`;
+      case 'mentioned': return `You were mentioned`;
+      case 'pr_closed': return `PR was closed or merged`;
+      case 'assigned': return `You were assigned`;
+      case 'team_mentioned': return `team-ai was mentioned`;
+      default: return `<span class="notif-actor">${actor}</span>${botTag} activity`;
+    }
+  }
+
+  function actionVerb(type) {
+    switch (type) {
+      case 'review_approved': return 'approved';
+      case 'review_changes_requested': return 'requested changes';
+      case 'comment_on_my_pr': return 'commented';
+      case 'reply_to_my_comment': return 'replied to you';
+      case 'direct_request': return 'requested your review';
+      case 'new_review': return 'reviewed';
+      case 'mentioned': return 'mentioned you';
+      case 'pr_closed': return 'closed/merged';
+      case 'assigned': return 'assigned you';
+      case 'team_mentioned': return 'mentioned team-ai';
+      default: return 'activity';
+    }
+  }
+
+  function groupNotifications(items) {
+    const GROUP_WINDOW_MS = 5 * 60 * 1000;
+    const groups = [];
+    const used = new Set();
+    for (let i = 0; i < items.length; i++) {
+      if (used.has(i)) continue;
+      const n = items[i];
+      const group = [n];
+      used.add(i);
+      // Look for nearby items with the same actor + prId
+      if (n.actor && n.prId) {
+        const nTime = new Date(n.createdAt).getTime();
+        for (let j = i + 1; j < items.length; j++) {
+          if (used.has(j)) continue;
+          const m = items[j];
+          if (m.actor !== n.actor || m.prId !== n.prId) continue;
+          const mTime = new Date(m.createdAt).getTime();
+          if (Math.abs(nTime - mTime) > GROUP_WINDOW_MS) continue;
+          group.push(m);
+          used.add(j);
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  function notifActionButtons(readClass, ids) {
+    if (readClass === 'read') {
+      return `<div class="notif-actions"><button class="notif-action-btn" data-notif-action="unread" data-notif-ids="${escapeHtml(ids)}">Mark unread</button></div>`;
+    }
+    return `<div class="notif-actions"><button class="notif-action-btn" data-notif-action="read" data-notif-ids="${escapeHtml(ids)}">Mark read</button></div>`;
+  }
+
+  function renderNotifGroup(group) {
+    const primary = group[0];
+    const isRead = group.every(n => n.readAt);
+    const readClass = isRead ? 'read' : '';
+    const ids = group.map(n => n.id).join(',');
+
+    if (group.length === 1) {
+      return `<div class="notif-item ${readClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
+        <div class="notif-unread-dot"></div>
+        ${notifIcon(primary.type)}
+        <div class="notif-body">
+          <div>${notifLabel(primary)}</div>
+          <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
+        </div>
+        ${notifActionButtons(readClass, ids)}
+        <div class="notif-time">${relativeTime(primary.createdAt)}</div>
+        <span class="notif-chevron" aria-hidden="true">›</span>
+      </div>`;
+    }
+
+    // Multiple items: combine verbs
+    const actor = escapeHtml(primary.actor || 'someone');
+    const botTag = primary.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
+    const verbs = [...new Set(group.map(n => actionVerb(n.type)))];
+    const verbText = verbs.join(' and ');
+    // Pick the most prominent icon (prefer review states over comments)
+    const iconPriority = ['direct_request', 'review_changes_requested', 'review_approved', 'reply_to_my_comment', 'new_review', 'comment_on_my_pr', 'mentioned', 'team_mentioned', 'assigned', 'pr_closed'];
+    const bestType = group.map(n => n.type).sort((a, b) => iconPriority.indexOf(a) - iconPriority.indexOf(b))[0] || primary.type;
+    // Pick any severity tags
+
+    return `<div class="notif-item ${readClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
+      <div class="notif-unread-dot"></div>
+      ${notifIcon(bestType)}
+      <div class="notif-body">
+        <div><span class="notif-actor">${actor}</span>${botTag} ${verbText}</div>
+        <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
+      </div>
+      ${notifActionButtons(readClass, ids)}
+      <div class="notif-time">${relativeTime(primary.createdAt)}</div>
+      <span class="notif-chevron" aria-hidden="true">›</span>
+    </div>`;
+  }
+
+  function renderNotifications() {
+    const all = loadNotifications();
+    const unreadCount = all.filter(n => !n.readAt).length;
+    notifBadgeEl.textContent = unreadCount > 0 ? String(unreadCount) : '';
+
+    // Disable mark-all when nothing unread
+    const markAllBtn = $('notif-mark-all');
+    markAllBtn.disabled = unreadCount === 0;
+
+    // Read lifecycle: unread → read (< 4h) → old (4h–2d) → pruned
+    const OLD_THRESHOLD_MS = 4 * 60 * 60 * 1000;
+    const now = Date.now();
+    function isOld(n) { return n.readAt && (now - n.readAt) > OLD_THRESHOLD_MS; }
+    function isRecentRead(n) { return n.readAt && (now - n.readAt) <= OLD_THRESHOLD_MS; }
+
+    const allGrouped = groupNotifications(all);
+    let visible;
+    if (currentNotifFilter === 'unread') visible = allGrouped.filter(g => g.some(n => !n.readAt));
+    else if (currentNotifFilter === 'read') visible = allGrouped.filter(g => g.every(n => !!n.readAt) && g.some(n => isRecentRead(n)));
+    else if (currentNotifFilter === 'old') visible = allGrouped.filter(g => g.every(n => !!n.readAt) && g.every(n => isOld(n)));
+    else visible = allGrouped;
+
+    if (visible.length === 0) {
+      const msg = currentNotifFilter === 'unread'
+        ? "You're all caught up.<br><span style=\"font-size:12px\">New PR activity will appear here.</span>"
+        : currentNotifFilter === 'old'
+          ? 'No old notifications.'
+          : 'No read notifications.';
+      notifListEl.innerHTML = `<div class="notif-empty">${msg}</div>`;
+      return;
+    }
+
+    notifListEl.innerHTML = visible.map(renderNotifGroup).join('');
+  }
+
+  function emitNotificationEvents(oldSnap, newSnap) {
+    if (!oldSnap) return;
+    const items = loadNotifications();
+    const existingKeys = new Set(items.map(n => n.key));
+    const oldPRs = oldSnap.prs || {};
+    let added = 0;
+
+    for (const [prId, pr] of Object.entries(newSnap.prs)) {
+      const old = oldPRs[prId];
+
+      // Section 4: reviews on your PRs
+      if (pr.section === 4) {
+        const oldReviewKeys = new Set((old?.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
+        for (const review of (pr.reviews || [])) {
+          if (review.user === pr.author) continue;
+          const rKey = `${review.user}:${review.submittedAt}`;
+          if (oldReviewKeys.has(rKey)) continue;
+          const isBot = review.user && review.user.endsWith('[bot]');
+          let type;
+          if (review.state === 'APPROVED') type = 'review_approved';
+          else if (review.state === 'CHANGES_REQUESTED') type = 'review_changes_requested';
+          else type = 'new_review';
+          const key = `${type}:${prId}:${review.user}:${review.submittedAt}`;
+          if (existingKeys.has(key)) continue;
+          items.unshift({
+            id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            key, type,
+            actor: review.user,
+            isBot,
+            prId, prTitle: pr.title, prUrl: pr.url,
+            createdAt: review.submittedAt || new Date().toISOString(),
+            readAt: null,
+          });
+          existingKeys.add(key);
+          added++;
+        }
+
+        // Comments on your PRs (includes bots for the feed)
+        const oldCommentKeys = new Set((old?.comments || []).map(c => `${c.user}:${c.createdAt}`));
+        for (const comment of (pr.comments || [])) {
+          if (comment.user === pr.author) continue;
+          const cKey = `${comment.user}:${comment.createdAt}`;
+          if (oldCommentKeys.has(cKey)) continue;
+          const isBot = comment.user && comment.user.endsWith('[bot]');
+          const key = `comment:${prId}:${comment.user}:${comment.createdAt}`;
+          if (existingKeys.has(key)) continue;
+          items.unshift({
+            id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            key, type: 'comment_on_my_pr',
+            actor: comment.user,
+            isBot,
+            prId, prTitle: pr.title, prUrl: pr.url,
+            createdAt: comment.createdAt || new Date().toISOString(),
+            readAt: null,
+          });
+          existingKeys.add(key);
+          added++;
+        }
+      }
+
+      // Section 3: new comments on review-requested PRs
+      if ([1, 2, 3].includes(pr.section) && old) {
+        const oldCommentKeys = new Set((old.comments || []).map(c => `${c.user}:${c.createdAt}`));
+        for (const comment of (pr.comments || [])) {
+          if (comment.user === USERNAME) continue;
+          // Skip bot comments on other people's PRs — only useful on your own
+          if (comment.user && comment.user.endsWith('[bot]')) continue;
+          const cKey = `${comment.user}:${comment.createdAt}`;
+          if (oldCommentKeys.has(cKey)) continue;
+          const isBot = comment.user && comment.user.endsWith('[bot]');
+          const key = `review-comment:${prId}:${comment.user}:${comment.createdAt}`;
+          if (existingKeys.has(key)) continue;
+          items.unshift({
+            id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            key, type: 'comment_on_my_pr',
+            actor: comment.user,
+            isBot,
+            prId, prTitle: pr.title, prUrl: pr.url,
+            createdAt: comment.createdAt || new Date().toISOString(),
+            readAt: null,
+          });
+          existingKeys.add(key);
+          added++;
+        }
+      }
+
+      // Direct review requests are NOT added to the notification feed —
+      // they already appear prominently in the PRs tab.
+    }
+
+    // Extra notifications: @mentions, state changes, assignments, team mentions
+    const oldExtraIds = new Set((oldSnap.mentions || []).map(m => m.id));
+    for (const mention of (newSnap.mentions || [])) {
+      if (oldExtraIds.has(mention.id)) continue;
+
+      // Map GitHub reason to our event type
+      let type;
+      switch (mention.reason) {
+        case 'mention': case 'comment': type = 'mentioned'; break;
+        case 'state_change': type = 'pr_closed'; break;
+        case 'assign': type = 'assigned'; break;
+        case 'team_mention': type = 'team_mentioned'; break;
+        default: continue;
+      }
+
+      // For mention/comment/team_mention, skip PRs already tracked by the snapshot
+      // (they get their own events from the diff). For state_change and assign,
+      // always show — even if the PR was tracked, the state change is new info.
+      if (['mentioned', 'team_mentioned'].includes(type) && newSnap.prs[mention.prId]) continue;
+
+      const key = `${type}:${mention.prId}:${mention.id}`;
+      if (existingKeys.has(key)) continue;
+      items.unshift({
+        id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        key, type,
+        actor: null,
+        isBot: false,
+        prId: mention.prId,
+        prTitle: mention.title,
+        prUrl: mention.url,
+        createdAt: mention.updatedAt || new Date().toISOString(),
+        readAt: null,
+      });
+      existingKeys.add(key);
+      added++;
+    }
+
+    if (added > 0) {
+      saveNotifications(items);
+      renderNotifications();
+    }
+  }
+
+  // Tab switching (persisted)
+  function switchView(view) {
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+    if (view === 'notifications') {
+      prsViewEl.classList.add('hidden');
+      notifViewEl.classList.add('active');
+      renderNotifications();
+    } else {
+      prsViewEl.classList.remove('hidden');
+      notifViewEl.classList.remove('active');
+    }
+    localStorage.setItem(STORAGE_ACTIVE_VIEW, view);
+  }
+  $('view-tabs').addEventListener('click', event => {
+    const tab = event.target.closest('.view-tab');
+    if (!tab) return;
+    switchView(tab.dataset.view);
+  });
+
+  // Notification filter buttons (persisted)
+  function switchNotifFilter(filter) {
+    document.querySelectorAll('.notif-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.notifFilter === filter));
+    currentNotifFilter = filter;
+    localStorage.setItem(STORAGE_NOTIF_FILTER, filter);
+    renderNotifications();
+  }
+  document.querySelectorAll('.notif-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchNotifFilter(btn.dataset.notifFilter);
+    });
+  });
+
+  // Click notification item: mark read, open PR
+  notifListEl.addEventListener('click', event => {
+    // Handle action buttons (mark read / mark unread) — stop propagation so we don't also open the PR
+    const actionBtn = event.target.closest('.notif-action-btn');
+    if (actionBtn) {
+      event.stopPropagation();
+      const action = actionBtn.dataset.notifAction;
+      const targetIds = new Set((actionBtn.dataset.notifIds || '').split(','));
+      const items = loadNotifications();
+      for (const n of items) {
+        if (!targetIds.has(n.id)) continue;
+        if (action === 'read') n.readAt = Date.now();
+        else if (action === 'unread') n.readAt = null;
+      }
+      saveNotifications(items);
+      renderNotifications();
+      return;
+    }
+
+    const item = event.target.closest('.notif-item');
+    if (!item) return;
+    const nid = item.dataset.notifId;
+    const items = loadNotifications();
+    const nids = new Set(nid.split(','));
+    let changed = false;
+    let openUrl = null;
+    for (const n of items) {
+      if (!nids.has(n.id)) continue;
+      if (!n.readAt) { n.readAt = Date.now(); changed = true; }
+      if (!openUrl && n.prUrl) openUrl = n.prUrl;
+    }
+    if (changed) {
+      saveNotifications(items);
+      renderNotifications();
+    }
+    if (openUrl) window.open(openUrl, '_blank');
+  });
+
+  // Mark all read
+  $('notif-mark-all').addEventListener('click', () => {
+    const items = loadNotifications();
+    const now = Date.now();
+    items.forEach(n => { if (!n.readAt) n.readAt = now; });
+    saveNotifications(items);
+    renderNotifications();
+  });
+
+  // ---- End Notifications ----
+
   function renderCachedIfAny() {
     const cachedRaw = localStorage.getItem(STORAGE_SNAPSHOT);
     if (!cachedRaw) return false;
@@ -2582,6 +3406,15 @@
     }
     hideSetup();
     renderCachedIfAny(); // instant paint from previous snapshot
+    // Restore persisted view and filter state
+    const savedFilter = localStorage.getItem(STORAGE_NOTIF_FILTER);
+    if (savedFilter && ['unread', 'read', 'old'].includes(savedFilter)) {
+      currentNotifFilter = savedFilter;
+      document.querySelectorAll('.notif-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.notifFilter === savedFilter));
+    }
+    renderNotifications();
+    const savedView = localStorage.getItem(STORAGE_ACTIVE_VIEW);
+    if (savedView === 'notifications') switchView('notifications');
     refresh();           // then refresh in the background
     setInterval(() => { if (Date.now() >= rateLimitedUntilMs) refresh(); }, AUTO_REFRESH_MS);
     document.addEventListener('visibilitychange', () => {
