@@ -19,6 +19,16 @@ Single-file personal GitHub PR dashboard. `github-digest.html` is the whole app 
 - Light/dark mode is via CSS vars + `@media (prefers-color-scheme: dark)`. Don't hardcode colors.
 - `escapeHtml` everything user/GitHub-provided that goes into innerHTML.
 
+### Notifications
+
+- The top-level tabs are PRs and Notifications. The active tab persists in `localStorage`.
+- Notifications are PR activity: reviews, comments, replies, @mentions, assignments, PR close/merge events, and `team-ai` mentions. Review requests stay in the PRs tab.
+- Show bot comments only on your PRs, with a Bot label. Exclude bot comments on other authors' PRs.
+- Use the clean `actor did thing` format. Do not add severity labels. Group same-actor, same-PR events within five minutes.
+- The read lifecycle is Unread → Read (under 4h) → Old (4h–2d) → pruned. The Unread, Read, and Old filter persists in `localStorage`. Hover actions mark items read or unread.
+- `emitNotificationEvents` builds events from snapshot diffs: reviews, plus comments on your PRs and PRs that requested your review. GitHub notification threads add mentions, assignments, state changes, and team mentions.
+- `.gh-digest/watch.mjs` detects the same activity for macOS alerts. It uses `terminal-notifier`, filters alerts to human activity, and batches alerts for three minutes.
+
 ## After changes
 
 - **Commit and push after every change.** Don't leave stale uncommitted edits sitting in the worktree.
