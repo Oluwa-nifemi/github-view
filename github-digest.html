@@ -2635,7 +2635,9 @@
 
     // High Priority: split into pinned, author-grouped active, and drafts.
     const priorityDrafts = buckets.teamTeammates.filter(pr => pr.isDraft && !isPromoted(pr));
-    const priorityPinned = buckets.teamTeammates.filter(isPromoted);
+    const priorityPinned = buckets.teamTeammates
+      .filter(isPromoted)
+      .sort((a, b) => Number(a.isDraft) - Number(b.isDraft));
     const priorityRest = buckets.teamTeammates.filter(pr => !pr.isDraft && !isPromoted(pr));
     const section3El = $('section-3');
     section3El.querySelector('.count').textContent = buckets.teamTeammates.length;
