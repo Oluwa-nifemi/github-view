@@ -1,0 +1,244 @@
+* {
+  letter-spacing: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.card {
+  cursor: default;
+}
+.card-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  float: right;
+  margin: 0 0 8px 12px;
+}
+.pr-link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.pr-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.card-title {
+  padding-right: 0;
+}
+.card .chips {
+  margin: 6px 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+.card-meta {
+  clear: both;
+  flex-wrap: wrap;
+}
+.card-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.note-editor {
+  position: static;
+  width: 100%;
+  padding: 10px 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.note-editor textarea {
+  width: 100%;
+  min-height: 80px;
+}
+.section-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+}
+section.section {
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+}
+section.section > h2 {
+  padding: 12px 0;
+}
+.section .cards {
+  padding: 0;
+}
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 18px 0;
+}
+.account-label {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.notification-event {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.notification-timeline summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 13px;
+}
+.notification-event a {
+  color: inherit;
+  text-decoration: none;
+}
+.notification-event a:hover {
+  text-decoration: underline;
+}
+.notification-event time {
+  margin-left: 10px;
+  color: var(--muted);
+}
+.notification-event p {
+  margin: 5px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.notification-thread.is-read {
+  opacity: 0.7;
+}
+.empty-state,
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.error-notice {
+  color: var(--red);
+  border: 1px solid var(--red);
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+.settings-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: 90vh;
+  overflow: auto;
+  padding: 24px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.settings-modal::backdrop {
+  background: #0008;
+}
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-modal label {
+  display: block;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.settings-modal label > input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+.settings-modal .checkbox-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.settings-modal .checkbox-label > input {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+input,
+select,
+textarea {
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  max-width: 100%;
+}
+.settings-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.settings-row input {
+  min-width: 0;
+  flex: 1;
+}
+.import-label input {
+  font-size: 12px;
+}
+.author-chips {
+  max-height: 120px;
+  overflow: auto;
+}
+@media (max-width: 640px) {
+  body {
+    padding: 14px;
+  }
+  .controls {
+    gap: 6px;
+  }
+  .card-toolbar {
+    float: none;
+    margin: 0 0 8px;
+  }
+  .card {
+    padding: 10px 8px;
+  }
+  .card-title {
+    font-size: 14px;
+  }
+  .filters {
+    align-items: stretch;
+  }
+  .filters .author-chips {
+    width: 100%;
+  }
+  .view-tabs {
+    flex-wrap: wrap;
+  }
+  .account-label {
+    width: 100%;
+    margin: 0;
+  }
+  .settings-modal {
+    padding: 16px;
+  }
+}

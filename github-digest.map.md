@@ -1,150 +1,31 @@
-# github-digest.html — file map
+# Module Map
 
-Single-file dashboard. Four top-level blocks: primary `<style>`, body markup, notifications `<style>`, `<script>` IIFE.
+| Area                   | Files                                                                                 | Responsibility                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Entry                  | `index.html`, `src/main.js`                                                           | Mount Preact and import styles                                        |
+| Lifecycle              | `src/ui/useDashboard.js`, `App.js`, `Auth.js`                                         | Connect/disconnect, cached paint, refresh coordination, account state |
+| PR interface           | `src/ui/PRList.js`, `PRCard.js`, `Filters.js`                                         | Bucketing, filtering, notes, pin/archive/delete/set-aside             |
+| Notifications          | `src/ui/Notifications.js`, `src/notifications/events.js`                              | Feed views and snapshot-derived events                                |
+| Settings               | `src/ui/Settings.js`                                                                  | Team configuration, ignored CI, credential-free settings transfer     |
+| Persistence            | `src/storage.js`, `src/ui/state.js`                                                   | JSON reads, schema validation, persisted hooks and retention          |
+| Configuration          | `src/config.js`                                                                       | Organization/team defaults, mutable preferences, active session       |
+| API transport          | `src/github/client.js`, `concurrent.js`                                               | HTTP, rate limits, pagination, ETags and draining concurrent work     |
+| GitHub queries         | `src/github/search.js`, `teammates.js`, `notifications.js`                            | Search, GraphQL decisions, roster caching, notification sources       |
+| Snapshot orchestration | `src/snapshot/build.js`                                                               | Gather sources, deduplicate, run stages, version/cache scope          |
+| Snapshot stages        | `requested.js`, `agent.js`, `mine.js`, `handled.js`, `engaged.js`, `teammate-open.js` | Separate PR source rules; explicit build context                      |
+| Snapshot helpers       | `src/snapshot/model.js`, `ci.js`                                                      | PR data shape and CI classification                                   |
+| Domain rules           | `src/domain/reviews.js`, `activity.js`, `comments.js`, `text.js`                      | Review classification, badges, activity, normalized comments          |
+| Styling                | `src/styles/base.css`, `cards.css`, `app.css`                                         | Theme/layout, repeated cards, responsive controls                     |
+| Local runtime          | `scripts/serve.mjs`, `startup.mjs`                                                    | Loopback server and macOS login service                               |
+| Migration              | `github-digest.html`, `scripts/export-legacy.js`                                      | Export settings from the old file origin                              |
+| Watcher                | `.gh-digest/watch.mjs`                                                                | Optional separate one-shot macOS notification check                   |
 
-## Layout / line ranges
+## Data Contracts
 
-Line numbers drift as edits land — treat as hints, grep to confirm.
+Snapshot: `{version, scope, prs, mentions, timestamp}`. `prs` maps `owner/repo#number` to PR data. Section numbers remain compatible with old caches: 3=requested, 4=mine, 5=handled, 6=engaged, 7=teammates. Legacy 1/2 render as requested.
 
-### `<style>` (~7–319)
-- CSS vars + dark-mode override (~8–38)
-- Buttons, summary, setup card (~61–114)
-- Filter bar + author/repo chips (~116–145)
-- Section shell (`section.section`, collapsible, count badge) (~147–179)
-- Card states: `.is-new` / `.is-escalated` / `.is-updated` / `.is-new-review` / `.stale` / `.archived` / `.is-draft` (~192–212)
-- Card corner actions (archive/unarchive/delete buttons) (~214–243)
-- Card meta + chips (`.chip.approved/changes/ci-fail/team-handled/draft/pending`) (~244–270)
-- Change badges (`NEW/ESCALATED/UPDATED/NEW-REVIEW`) (~272–283)
+PR data includes identity/title/link, author/teammate membership, dates, reviews, comments, draft state, and section-specific CI/request/activity fields. Add normalized fields in the owning stage and increase snapshot version if existing cached entries would lack them.
 
-### Notifications `<style>` (~679–864)
-- View-tab styles: `.view-tabs`, `.view-tab`, active tab, and unread-count badge
-- PR/Notifications view visibility: `#prs-view`, `#notifications-view`
-- Notification filter and bulk-read controls: `.notif-controls`, `.notif-filter-btn`, `.notif-mark-all`
-- Notification rows: `.notif-list`, `.notif-group`, `.notif-item`, unread/read/old states, icons, actor, PR metadata, time, chevron, and Bot label
-- Hover-only notification action buttons: `.notif-actions`, `.notif-action-btn`
-- Empty notification state: `.notif-empty`
+Local storage retains the existing `gh_*` keys. Global archive/delete, my-PR set-aside, pins, notes, filters, collapse state, and notification read/pin state are separate concepts. An archived PR resurfaces when its activity signature changes; deleted items stay hidden until restored.
 
-### Body (~866–1066)
-- `#setup` — token onboarding panel (~322–339)
-- `#app` — main UI, hidden until token loaded (~341–430)
-  - Header + controls (refresh, sign out, spinner) (~342–350)
-  - `#summary` + `#error-bar` (~352–353)
-  - `#view-tabs` — PRs / Notifications switcher; Notifications includes the unread-count badge
-  - `#notifications-view` — hidden unless active; contains Unread / Read / Old filter buttons, Mark all read, and `#notif-list`
-  - `#prs-view` — wrapper around the existing PR filters and sections
-  - `.filters` — author chips, teammates toggle, repo chips, clear
-  - Sections inside `#prs-view` (each `<section class="section" id="section-X">`), in page order:
-    - `section-3` ⭐ High Priority — collapsible (expanded by default); three tiers: pinned PRs at top (from any section via 📌), then author-grouped `<details>` (collapsed when ≥4 PRs, sorted by pending direct-request then recency), then a drafts `<details>`. Personal review-requests render here too, labeled `👤 requested you` / `👁 reviewed before` via `isDirect`.
-    - `section-4` 🟢 Your Open PRs (collapsible, collapsed by default, has 4 status subgroups + a `<details class="my-archive-group">` "Set aside" subgroup for PRs stashed via `gh_digest_archived_mine`)
-    - `section-3b` ⚪ Team Requests — Others
-    - `section-team-handled` 🔵 Team Handled
-    - `section-engaged` 💭 Engaged
-    - `section-teammates-open` 👥 Teammates' Open PRs
-    - `section-archive` 📦 Archived
-    - `section-deleted` 🗑️ Deleted
-
-### `<script>` IIFE (~435–end)
-Top-level constants then functional blocks in order:
-
-| Block | Purpose |
-|---|---|
-| Config consts (`ORG`, `TEAM`, `EXTRA_TEAMMATES`, `STORAGE_*`, `STALE_DAYS`, `TEAMMATES_TTL_MS`, `AUTO_REFRESH_MS`) plus mutable `USERNAME` | `USERNAME` is not hardcoded — it's a `let` hydrated from `gh_username`, derived from the token's `/user` login by `ensureUsername`; all `localStorage` keys live here, including `STORAGE_NOTIFICATIONS`, `STORAGE_NOTIF_PREFS`, `STORAGE_ACTIVE_VIEW`, and `STORAGE_NOTIF_FILTER`; `AUTO_REFRESH_MS` = 3 min, controls both `setInterval` and visibility-change guard; `EXTRA_TEAMMATES` = logins treated as teammates beyond the GitHub team roster |
-| DOM `$` helpers | element refs |
-| State vars | `teammates`, filters, `archivedPRs`, `archivedMinePRs`, `rateLimitedUntilMs`, `etagCache` (in-memory Map: url → `{etag, data}`) |
-| `archivedPRs` helpers — `isArchived`, `isDeleted`, `archivePR`, `deletePR`, `unarchivePR`, `persistArchived` | Global archive (any section). Entries: `{archivedAt, signature, deleted?, deletedAt?}`. Auto-resurface when `pr.updatedAt !== entry.signature`, unless `deleted: true`. |
-| `archivedMinePRs` helpers — `isArchivedMine`, `archiveMinePR`, `unarchiveMinePR`, `persistArchivedMine` | Separate "set aside" mechanism scoped to section 4 (Your Open PRs) only. Entries: `{archivedAt}` — no auto-resurface on activity; stays parked until manually restored via the 🗄/↺ card button. Renders in the `<details class="my-archive-group">` subgroup instead of removing the PR from view. |
-| `isStale` | >30 days since update |
-| Token setup — `showSetup` / `hideSetup`, `ensureUsername`, `#token-save`, `#logout-btn` handlers | Validates token against `/user` and takes `USERNAME` from the returned login. `ensureUsername` back-fills it on refresh for sessions that stored a token before this key existed; a token for a different login clears the cached snapshot |
-| GitHub fetch — `ghFetch`, `ghJson`, `search`, `ghGraphQL`, `searchByTeammates`, `repoFromIssue` | `ghJson` sends `If-None-Match` from `etagCache`, handles 304 (free request), caches new ETags on 200. Throws `RateLimitError` on 403/429 with `X-RateLimit-Remaining: 0`. `ghGraphQL` posts to the GraphQL endpoint. `searchByTeammates(qualifier, logins, token, extraQ?)` issues a single GraphQL search ORing multiple `author:` or `review-requested:` qualifiers — replaces N parallel REST searches. |
-| `getTeammates(token)` | 24h-cached `/orgs/{ORG}/teams/{TEAM}/members`, unioned with `EXTRA_TEAMMATES` on every path (cache hit, fresh fetch, fetch failure) |
-| `parsePRFromNotification`, `fetchRelevantNotifications`, `fetchExtraNotifications` | `fetchRelevantNotifications` finds PRs the team already handled (catches PRs no longer in your review-requested list). `fetchExtraNotifications` reads GitHub notification threads for PR mentions, assignments, state changes, and team mentions. |
-| **PR enrichment helpers** | `normalizeReviews(rawReviews)` → `{user,state,submittedAt}[]`. `latestNonCommentReviewsByReviewer(reviews, authorLogin, pendingLogins)` → Map used by `classifyMyPR` + `reviewChips`. `applyCachedPR(cached, title)` → fast-path spread for all sections. `buildPRBase(prId, repo, section, item, prDetail)` → common PR object fields (pass null for item in s5, null for prDetail in s7). |
-| **`buildSnapshot(token, cachedSnapshot)`** — the big one | Runs the 4 searches plus extra notification-thread fetch in parallel, then enriches per section. Each section has a cache fast-path keyed on `updated_at`. Section-specific fields are spread on top of `buildPRBase`. Returns `{prs, mentions, timestamp}`. |
-| └─ Section 3 enrichment | review-requested PRs (direct + team) → fetches reviews + requested_reviewers + prDetail + `comments` (merged issue comments + PR review comments, `{user, createdAt}[]`). All land in section 3; `isDirect` flags a personal review-request (rendered as a `👤 requested you` / `👁 reviewed before` label instead of a separate section — sets `reviewedBefore` if you've already submitted a formal, non-comment-only review). Records `isDraft`. `diff` badges `UPDATED` on any new non-you comment, independent of `reviewedBefore`. (`case 1`/`case 2` in render still map into section 3's teamTeammates/teamOthers split, for old cached snapshots from before the "Needs Your Attention" section was folded in.) |
-| └─ `checkCi(repo, sha)` | Dedupe check-runs by `(app.id, name)`, take latest; fail if any failure/timed_out/action_required, or any failing status. |
-| └─ Section 4 enrichment | your authored + assigned PRs. Captures `headSha`, `ciFailing`, `isDraft`, **`pendingReviewers`** (count of `requested_reviewers` + `requested_teams` still outstanding — used by `classifyMyPR` to gate "approved"), and `comments` (merged issue comments + PR review comments, `{user, createdAt}[]`, used by `diff` to badge new non-author comments as `UPDATED`). CI re-checked every refresh even when cached. |
-| └─ Section 5 (Team Handled) | PRs from notifications not covered above; tracks `youReviewed` and `teammateReviewers`. **If you already reviewed and `prDetail.updated_at` is newer than your last review, the PR is routed back to Team Requests (section 3) instead** — "changed since you touched it", no explicit re-review needed. |
-| └─ Section 6 (Engaged) | `commenter:` search, last 30 days. |
-| └─ Section 7 (Teammates' Open) | single GraphQL search across all teammate logins (`author:` ORed), last 14 days, no per-PR enrichment. |
-| `diff(oldSnap, newSnap)` | Returns badges map: `NEW` (incl. any section change), `UPDATED` (`isDirect` + `reviewedBefore` + `updatedAt` changed, or new non-you comment in section 3), `NEW-REVIEW` (section 4, new non-author review). |
-| **`classifyMyPR(pr)`** | Section 4 subgroup (active PRs only, excludes stashed): `ci_failing` > `changes_requested` > `approved` (only if `!pr.pendingReviewers`) > `awaiting`. |
-| `relativeTime`, `reviewChips`, `renderCard`, `escapeHtml` | Rendering primitives. `reviewChips` emits personal-request/reviewed/draft/approved/changes/pending/ci-fail in that order. `renderCard(pr, badge, archived, promoted, archivedMine)` chooses card class from badge or `is-draft`/`archived-mine`, and renders archive/delete/unarchive/stash corner buttons based on `isArchived`/`isDeleted`/`archivedMine`. Pin button (📌) has no section restriction — pinning always floats a PR into High Priority (section-3), regardless of author/origin. |
-| `applyFilter(prs)` | Author + teammate filters OR-combined; repo filter AND-combined. |
-| `renderList`, `render(snapshot, badges)` | Buckets PRs per section. Order: `isDeleted` → deleted, `isArchived` → global archived, `isPromoted` → High Priority (section-3) unconditionally, then by `pr.section` (unpromoted teammate-authored team requests also land in section-3; non-teammate ones go to section-3b). Section 3 split into pinned → author-grouped `<details>` (collapsed ≥4 PRs) → drafts. Section 4 split into `isArchivedMine` (→ `.my-archive-group`) vs active, active grouped by `classifyMyPR`. |
-| `renderFilters` | Builds author/repo chips from PR set, wires click handlers. |
-| Collapsible `<h2>` click handler | toggles `.collapsed` and `▸ expand` / `▾ collapse` label (section-4's `<details>` subgroup uses native toggle instead). |
-| Card-action click delegation | catches `data-action="archive\|delete\|unarchive\|promote\|demote\|stash-mine\|unstash-mine"` on any rendered card. |
-| **Notifications** — `loadNotifications`, `saveNotifications`, `groupNotifications`, `renderNotifGroup`, `renderNotifications` | Stores the feed locally, prunes read items after two days, groups same-actor/same-PR events within five minutes, and renders Unread / Read / Old states. Rows use an actor-action label, with Bot only for bot comments on your PRs. Hover actions mark groups read or unread. |
-| Notification display helpers — `notifIcon`, `notifLabel`, `actionVerb`, `notifActionButtons` | Selects the event icon and clean actor-action text, including grouped verbs and Bot label. |
-| `emitNotificationEvents(oldSnap, newSnap)` | Produces deduplicated feed events from snapshot diffs: reviews, comments on your PRs and review-requested PRs, replies, and `mentions` from notification threads. Review requests are not feed events. |
-| View/filter switching — `switchView`, `switchNotifFilter` | Switches the PRs and Notifications top-level views, or the Unread / Read / Old feed filter. Both settings persist in `localStorage`. |
-| `refresh()` flow + `boot()` | Cached paint from `STORAGE_SNAPSHOT`, then live refresh. Stores snapshot back to localStorage every refresh, then calls `emitNotificationEvents` after diffing. `boot()` restores the persisted notification filter and active view before the background refresh. |
-
-### `.gh-digest/watch.mjs`
-
-- Fetches comments for authored PRs, including review-comment `in_reply_to_id` for reply detection.
-- Uses `isBot()` to keep macOS alerts human-only.
-- Detects `comment_on_my_pr`, `reply_to_my_comment`, `mentioned`, `pr_closed`, `assigned`, and `team_mentioned` events.
-- Reads GitHub notification threads and tracks their IDs in `snapshot.mentionIds` to prevent duplicate alerts.
-- Batches macOS notifications through `terminal-notifier` for three minutes.
-
-## Data shapes
-
-### PR object (in `snapshot.prs[id]`)
-```
-id            "owner/repo#123"
-number, repo, title, url
-author, authorAvatar, authorIsTeammate
-createdAt, updatedAt
-section       1|2|3|4|5|6|7   (1/2 are legacy cached values, remapped into 3's split at render time)
-isDraft       bool
-reviews       [{user, state, submittedAt}]
-// section 3 (review-requested, direct + team)
-isDirect, isTeam, lastUserReviewAt, comments
-// section 4 (your open PRs)
-headSha, ciFailing, pendingReviewers, comments
-// section 5
-youReviewed, teammateReviewers
-```
-
-### Snapshot extras
-```
-mentions      [{id, key, type, actor, isBot, prId, prTitle, prUrl, createdAt}]
-```
-
-### Notification item (`gh_digest_notifications`)
-```
-{ id, key, type, actor, isBot, prId, prTitle, prUrl, createdAt, readAt }
-```
-
-Types cover reviews, comments, replies, @mentions, assignments, PR close/merge events, and team mentions. Same-actor, same-PR events within five minutes render as one row. The lifecycle is Unread → Read (<4h) → Old (4h–2d) → pruned.
-
-### `archivedPRs[id]` (global archive, any section)
-```
-{ archivedAt, signature?: updatedAt-at-archive-time, deleted?: bool, deletedAt? }
-```
-
-### `archivedMinePRs[id]` (section 4 "set aside", separate mechanism)
-```
-{ archivedAt }
-```
-
-## localStorage keys (all prefixed)
-- `gh_token` — PAT
-- `gh_username` — login derived from the PAT; cached to avoid a `/user` call per load
-- `gh_digest_last_snapshot` — full snapshot for diffing + cache fast-paths
-- `gh_digest_filter_authors`, `gh_digest_filter_repos`, `gh_digest_teammates` — filter state
-- `gh_digest_archived` — global archive/delete map
-- `gh_digest_archived_mine` — section-4-only "set aside" map, independent of the global archive
-- `gh_digest_promoted` — set of PR ids manually pinned into High Priority (section-3)
-- `gh_digest_team_members` — `{members, fetchedAt}`, 24h TTL
-- `gh_digest_notifications` — notification feed items
-- `gh_digest_notification_prefs` — notification preferences
-- `gh_digest_active_view` — active top-level tab (`prs` or `notifications`)
-- `gh_digest_notif_filter` — active notification filter (`unread`, `read`, or `old`)
-
-## Editing tips
-- **Adding a new badge/state**: card class in style block + branch in `renderCard` class list + chip in `reviewChips`.
-- **Adding a section**: DOM `<section>` + bucket key in `render()` + `renderList()` call. If it needs enrichment, add a block to `buildSnapshot` with a `cached.section === N` fast-path.
-- **Cache invalidation**: any new field on a section's PR object needs the fast-path guard to check for its presence (see how `pendingReviewers !== undefined` is checked in section 4) or stale caches will skip re-enrichment.
-- **CI logic** lives in `checkCi` only — touch nothing else for failures behavior.
+The pre-migration HTML and specification remain in Git history. `docs/audit.md` records the audit that motivated this split.
