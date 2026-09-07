@@ -1,0 +1,23 @@
+/* Preserve the original layout with semantic links and keyboard controls. */
+.card-content-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.card:focus-within .card-action,
+.card:focus-within .note-delete {
+  opacity: 1;
+}
+.card-content-link:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.settings-transfer input[type="file"] {
+  max-width: 100%;
+}
+.settings-transfer label {
+  display: block;
+  margin: 8px 0;
+  font-size: 12px;
+}

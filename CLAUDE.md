@@ -13,7 +13,7 @@ Read `github-digest.map.md` to locate the owning module before editing.
 - Preserve `gh_*` storage keys. Increase snapshot version when enrichment contracts change. Browser storage imports must exclude credentials.
 - Settings are mutable `config`; active identity and roster live in `session`. Refreshes must not overlap, including account/config changes.
 - Use Preact escaping and `safeUrl` for external links. No raw GitHub content in HTML strings. Keep action buttons outside links.
-- Preserve light/dark CSS variables and mobile layout. Use Lucide icons with accessible labels.
+- Preserve the original dashboard appearance, icons, copy, and interactions. This is a modular refactor, not a redesign. Keep accessible labels and mobile layout.
 - GitHub CLI calls must use the elevated boundary for macOS Keychain access. Never print or persist tokens in files, traces, screenshots, or fixtures.
 
 ## Validation

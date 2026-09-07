@@ -14,7 +14,9 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(process.env.APP_URL || "http://127.0.0.1:4173");
   await page.getByLabel("GitHub token", { exact: true }).fill(token);
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Save and load", exact: true })
+    .click();
   await page.waitForFunction(
     () => {
       const snapshot = localStorage.getItem("gh_digest_last_snapshot");

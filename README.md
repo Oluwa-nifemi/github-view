@@ -1,6 +1,6 @@
 # GitHub View
 
-A local GitHub PR dashboard built with Preact. Review requests, your PRs, team activity, notes, and notification triage stay in one place.
+A local GitHub PR dashboard built with Preact, preserving the original dashboard UI. Review requests, your PRs, team activity, notes, and notification triage stay in one place.
 
 ## Start
 

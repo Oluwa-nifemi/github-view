@@ -27,16 +27,14 @@ const rawKeys = [
   "gh_digest_teammates",
 ];
 const contentKeys = ["gh_digest_last_snapshot", "gh_digest_notifications"];
-export function Settings({ onClose, onDisconnect, onSave }) {
+export function Settings({ onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const ref = useRef();
-  const [extra, setExtra] = useState(config.EXTRA_TEAMMATES.join(", "));
-  const [excluded, setExcluded] = useState(
-    config.EXCLUDED_TEAMMATES.join(", "),
-  );
+  const [extra, setExtra] = useState([...config.EXTRA_TEAMMATES]);
+  const [excluded, setExcluded] = useState([...config.EXCLUDED_TEAMMATES]);
+  const [extraInput, setExtraInput] = useState("");
+  const [excludedInput, setExcludedInput] = useState("");
   const [bot, setBot] = useState(config.AGENT_BOT_LOGIN);
-  const [org, setOrg] = useState(config.ORG);
-  const [teams, setTeams] = useState(config.TEAMS.join(", "));
   const [includeContent, setIncludeContent] = useState(false);
   const [rules, setRules] = useState(
     read("gh_digest_ignored_ci", config.DEFAULT_IGNORED_CI),
@@ -47,20 +45,20 @@ export function Settings({ onClose, onDisconnect, onSave }) {
   useEffect(() => {
     ref.current.showModal();
   }, []);
-  const split = (value) =>
-    value
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  async function save(e) {
-    e.preventDefault();
+  async function save(patch = {}) {
+    const next = {
+      extra,
+      excluded,
+      bot: config.AGENT_BOT_LOGIN,
+      rules,
+      ...patch,
+    };
     if (
-      !/^[a-z0-9-]+$/i.test(org) ||
-      split([extra, excluded, bot].join(",")).some(
+      [...next.extra, ...next.excluded, next.bot].some(
         (s) => !/^[-a-z0-9]+(?:\[bot\])?$/i.test(s),
       )
     ) {
-      setError("Enter a valid organization and GitHub logins.");
+      setError("Enter valid GitHub logins.");
       return;
     }
     setSaving(true);
@@ -68,25 +66,25 @@ export function Settings({ onClose, onDisconnect, onSave }) {
     try {
       await onSave(() => {
         Object.assign(config, {
-          ORG: org,
-          TEAMS: split(teams),
-          EXTRA_TEAMMATES: split(extra),
-          EXCLUDED_TEAMMATES: split(excluded),
-          AGENT_BOT_LOGIN: bot.trim(),
-          DEFAULT_IGNORED_CI: rules,
+          EXTRA_TEAMMATES: next.extra,
+          EXCLUDED_TEAMMATES: next.excluded,
+          AGENT_BOT_LOGIN: next.bot,
+          DEFAULT_IGNORED_CI: next.rules,
         });
         write("gh_digest_user_config", {
-          org,
-          teams: split(teams),
-          extraTeammates: split(extra),
-          excludedTeammates: split(excluded),
-          agentBotLogin: bot.trim(),
-          defaultIgnoredCi: rules,
+          org: config.ORG,
+          teams: config.TEAMS,
+          extraTeammates: next.extra,
+          excludedTeammates: next.excluded,
+          agentBotLogin: next.bot,
+          defaultIgnoredCi: next.rules,
         });
-        write("gh_digest_ignored_ci", rules);
+        write("gh_digest_ignored_ci", next.rules);
+        setExtra(next.extra);
+        setExcluded(next.excluded);
+        setRules(next.rules);
         localStorage.removeItem("gh_digest_team_members");
       });
-      onClose();
     } catch (error) {
       setError(error.message || "Could not save settings.");
     } finally {
@@ -161,92 +159,185 @@ export function Settings({ onClose, onDisconnect, onSave }) {
       setError(error.message);
     }
   }
-  return html`<dialog ref=${ref} class="settings-modal" onCancel=${onClose}>
-    <form onSubmit=${save}>
-      <div class="settings-heading">
-        <h2>Settings</h2>
-        <button type="button" aria-label="Close settings" onClick=${onClose}>
-          ×
-        </button>
-      </div>
-      <label
-        >Organization<input
-          value=${org}
-          required
-          onInput=${(e) => setOrg(e.target.value)} /></label
-      ><label
-        >Teams (comma separated)<input
-          value=${teams}
-          onInput=${(e) => setTeams(e.target.value)} /></label
-      ><label
-        >Extra teammates<input
-          value=${extra}
-          onInput=${(e) => setExtra(e.target.value)} /></label
-      ><label
-        >Excluded teammates<input
-          value=${excluded}
-          onInput=${(e) => setExcluded(e.target.value)} /></label
-      ><label
-        >Agent bot login<input
-          value=${bot}
-          onInput=${(e) => setBot(e.target.value)}
-      /></label>
-      <h3>Ignored CI checks</h3>
-      ${rules.map((rule, index) => html`<div class="ignore-rule"><code>${rule.repo}</code><code>${rule.pattern}</code><button type="button" onClick=${() => setRules(rules.filter((_, i) => i !== index))}>Remove</button></div>`)}
-      <div class="settings-row">
-        <input
-          aria-label="CI repository"
-          placeholder="owner/repo or *"
-          value=${repo}
-          onInput=${(e) => setRepo(e.target.value)}
-        /><input
-          aria-label="CI check pattern"
-          placeholder="Check name contains"
-          value=${pattern}
-          onInput=${(e) => setPattern(e.target.value)}
-        /><button
-          type="button"
-          disabled=${!pattern.trim()}
-          onClick=${() => {
-            setRules([
-              ...rules,
-              { repo: repo.trim() || "*", pattern: pattern.trim() },
-            ]);
-            setPattern("");
+  const tags = (items, key) =>
+    items.length
+      ? items.map(
+          (item, index) =>
+            html`<span class="settings-tag"
+              >${item}<button
+                type="button"
+                aria-label=${`Remove ${item}`}
+                disabled=${saving}
+                onClick=${() => save({ [key]: items.filter((_, i) => i !== index) })}
+              >
+                ×
+              </button></span
+            >`,
+        )
+      : html`<span style="color:var(--muted);font-size:12px">None</span>`;
+  const add = async (key, value, clear) => {
+    const login = value.trim();
+    if (!login || (key === "extra" ? extra : excluded).includes(login)) return;
+    await save({ [key]: [...(key === "extra" ? extra : excluded), login] });
+    clear("");
+  };
+  return html`<dialog
+    id="settings-dialog"
+    ref=${ref}
+    onCancel=${onClose}
+    onClick=${(e) => {
+      if (e.target === ref.current) onClose();
+    }}
+  >
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button
+        id="settings-close"
+        class="icon-button"
+        aria-label="Close settings"
+        onClick=${onClose}
+      >
+        ×
+      </button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <h3>Extra teammates</h3>
+        <p class="settings-copy">
+          Logins treated as teammates beyond the GitHub team roster.
+        </p>
+        <div id="extra-teammates-tags" class="settings-tag-list">
+          ${tags(extra, "extra")}
+        </div>
+        <form
+          class="settings-add-row"
+          onSubmit=${(e) => {
+            e.preventDefault();
+            add("extra", extraInput, setExtraInput);
           }}
         >
-          Add
-        </button>
+          <input
+            id="extra-teammate-input"
+            placeholder="GitHub login"
+            aria-label="Add extra teammate"
+            value=${extraInput}
+            onInput=${(e) => setExtraInput(e.target.value)}
+          /><button type="submit" id="extra-teammate-add" disabled=${saving}>
+            Add
+          </button>
+        </form>
       </div>
-      <h3>Move browser settings</h3>
-      <label class="checkbox-label"
-        ><input
-          type="checkbox"
-          checked=${includeContent}
-          onChange=${(e) => setIncludeContent(e.target.checked)}
-        />
-        Include cached pull requests and notification history</label
-      >
-      <div class="settings-row">
-        <button type="button" onClick=${exportState}>Export settings</button
-        ><label class="import-label"
-          >Import settings<input
-            type="file"
-            accept="application/json,.json"
-            onChange=${importState}
-        /></label>
+      <div class="settings-section">
+        <h3>Excluded teammates</h3>
+        <p class="settings-copy">Team members to hide from the dashboard.</p>
+        <div id="excluded-teammates-tags" class="settings-tag-list">
+          ${tags(excluded, "excluded")}
+        </div>
+        <form
+          class="settings-add-row"
+          onSubmit=${(e) => {
+            e.preventDefault();
+            add("excluded", excludedInput, setExcludedInput);
+          }}
+        >
+          <input
+            id="excluded-teammate-input"
+            placeholder="GitHub login"
+            aria-label="Add excluded teammate"
+            value=${excludedInput}
+            onInput=${(e) => setExcludedInput(e.target.value)}
+          /><button type="submit" id="excluded-teammate-add" disabled=${saving}>
+            Add
+          </button>
+        </form>
       </div>
-      <p class="muted">
-        Exports include notes and preferences. Tokens are always excluded.
-      </p>
-      ${error && html`<p role="alert">${error}</p>`}
-      <div class="settings-row">
-        <button type="submit" class="primary" disabled=${saving}>
-          ${saving ? "Saving…" : "Save settings"}</button
-        ><button type="button" onClick=${onDisconnect}>
-          Disconnect GitHub
-        </button>
+      <div class="settings-section">
+        <h3>Agent bot</h3>
+        <p class="settings-copy">
+          AI bot whose PRs are treated as yours when you're assigned.
+        </p>
+        <form
+          class="settings-add-row"
+          onSubmit=${(e) => {
+            e.preventDefault();
+            save({ bot: bot.trim() });
+          }}
+        >
+          <input
+            id="agent-bot-input"
+            aria-label="Agent bot login"
+            value=${bot}
+            onInput=${(e) => setBot(e.target.value)}
+          /><button type="submit" id="agent-bot-save" disabled=${saving}>
+            Save
+          </button>
+        </form>
       </div>
-    </form>
+      <div class="settings-section">
+        <h3>Ignored CI checks</h3>
+        <p class="settings-copy">
+          Matching is case-insensitive. Checks whether the job name contains the
+          text.
+        </p>
+        <div id="ignore-rules" class="ignore-rules">
+          ${rules.length ? rules.map((rule, index) => html`<div class="ignore-rule"><code>${rule.repo || "*"}</code><code>${rule.pattern}</code><button type="button" disabled=${saving} onClick=${() => save({ rules: rules.filter((_, i) => i !== index) })}>Stop ignoring</button></div>`) : html`<div class="ignore-empty">No CI checks are ignored.</div>`}
+        </div>
+        <form
+          id="ignore-form"
+          class="ignore-form"
+          onSubmit=${(e) => {
+            e.preventDefault();
+            if (pattern.trim()) {
+              save({
+                rules: [
+                  ...rules,
+                  { repo: repo.trim() || "*", pattern: pattern.trim() },
+                ],
+              });
+              setPattern("");
+            }
+          }}
+        >
+          <input
+            id="ignore-repo"
+            placeholder="Repository or *"
+            aria-label="Repository scope"
+            value=${repo}
+            onInput=${(e) => setRepo(e.target.value)}
+          /><input
+            id="ignore-pattern"
+            placeholder="Job name contains…"
+            aria-label="Job name pattern"
+            required
+            value=${pattern}
+            onInput=${(e) => setPattern(e.target.value)}
+          /><button type="submit" disabled=${saving}>Add rule</button>
+        </form>
+      </div>
+      ${error && html`<p class="error" role="alert">${error}</p>`}
+      <details class="settings-section settings-transfer">
+        <summary>Move browser settings</summary>
+        <p class="settings-copy">
+          Exports include notes and preferences. Tokens are always excluded.
+        </p>
+        <label
+          ><input
+            type="checkbox"
+            checked=${includeContent}
+            onChange=${(e) => setIncludeContent(e.target.checked)}
+          />
+          Include cached pull requests and notification history</label
+        >
+        <div class="settings-add-row">
+          <button type="button" onClick=${exportState}>Export settings</button
+          ><label
+            >Import settings<input
+              type="file"
+              accept="application/json,.json"
+              onChange=${importState}
+          /></label>
+        </div>
+      </details>
+    </div>
   </dialog>`;
 }

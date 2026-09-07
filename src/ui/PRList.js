@@ -1,19 +1,20 @@
-import { html } from "./common.js";
+import { html, safeUrl } from "./common.js";
 import { PRCard } from "./PRCard.js";
 import { classifyMyPR, isHandledByReview } from "../domain/reviews.js";
 import { session, config } from "../config.js";
 import { toggle } from "./state.js";
 
-const labels = {
-  priority: "High Priority",
-  others: "Team Requests",
-  mine: "My Pull Requests",
-  handled: "Handled by Team",
-  engaged: "Previously Engaged",
-  teammates: "Teammates’ Open PRs",
-  archived: "Archived",
-  deleted: "Deleted",
-};
+const sections = [
+  ["priority", "3", "⭐", "High Priority"],
+  ["mine", "4", "🟢", "Your Open PRs"],
+  ["others", "3b", "⚪", "Team Requests — Others"],
+  ["handled", "team-handled", "🔵", "Team Handled"],
+  ["engaged", "engaged", "💭", "Engaged"],
+  ["teammates", "teammates-open", "👥", "Teammates' Open PRs"],
+  ["archived", "archive", "📦", "Archived"],
+  ["deleted", "deleted", "🗑️", "Deleted"],
+];
+const latestFirst = (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt);
 export function PRList({
   prs,
   state,
@@ -22,17 +23,15 @@ export function PRList({
   setSections,
   setAuthors,
 }) {
-  const buckets = Object.fromEntries(
-    Object.keys(labels).map((key) => [key, []]),
-  );
+  const buckets = Object.fromEntries(sections.map(([key]) => [key, []]));
   for (const pr of Object.values(prs)) {
     if (
       !pr ||
       typeof pr.id !== "string" ||
-      !pr.repo?.startsWith(`${config.ORG}/`)
+      !pr.repo?.startsWith(`${config.ORG}/`) ||
+      config.IGNORED_REPOS.has(pr.repo)
     )
       continue;
-    if (config.IGNORED_REPOS.has(pr.repo)) continue;
     if (state.repos.length && !state.repos.includes(pr.repo)) continue;
     if (
       (state.teamOnly || state.authors.length) &&
@@ -60,6 +59,12 @@ export function PRList({
       ];
     if (key) buckets[key].push(pr);
   }
+  const pinnedFirst = (a, b) =>
+    Number(state.promoted.includes(b.id)) -
+      Number(state.promoted.includes(a.id)) ||
+    new Date(a.createdAt) - new Date(b.createdAt);
+  for (const [key, list] of Object.entries(buckets))
+    list.sort(["priority", "others"].includes(key) ? pinnedFirst : latestFirst);
   const cards = (list) =>
     list.map(
       (pr) =>
@@ -71,81 +76,124 @@ export function PRList({
           badge=${badges[pr.id]}
         />`,
     );
-  const group = (label, list) =>
-    list.length
-      ? html`<div class="subgroup">
-          <h3>${label} (${list.length})</h3>
-          ${cards(list)}
-        </div>`
-      : null;
-  return Object.entries(labels).map(([key, label]) => {
-    const list = buckets[key].sort(
-      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
-    );
-    let content = cards(list);
+  const archiveGroup = (label, list, className = "my-archive-group") =>
+    html`<details
+      class=${className}
+      style=${list.length ? undefined : { display: "none" }}
+    >
+      <summary>${label} <span class="count">${list.length}</span></summary>
+      <div class="subgroup-body">${cards(list)}</div>
+    </details>`;
+  return sections.map(([key, id, icon, label]) => {
+    const list = buckets[key];
+    let content = cards(list),
+      count = list.length;
     if (key === "priority") {
-      const pinned = list.filter((pr) => state.promoted.includes(pr.id));
+      const pinned = list
+        .filter((pr) => state.promoted.includes(pr.id))
+        .sort((a, b) => Number(a.isDraft) - Number(b.isDraft));
+      const drafts = list.filter(
+        (pr) => pr.isDraft && !state.promoted.includes(pr.id),
+      );
       const active = list.filter(
-        (pr) => !state.promoted.includes(pr.id) && !pr.isDraft,
+        (pr) => !pr.isDraft && !state.promoted.includes(pr.id),
       );
-      const authors = [...new Set(active.map((pr) => pr.author))].sort(
+      count = active.length + pinned.length;
+      const authorMap = new Map();
+      for (const pr of active) {
+        const author = pr.author || "unknown";
+        if (!authorMap.has(author))
+          authorMap.set(author, {
+            author,
+            avatar: pr.authorAvatar,
+            prs: [],
+            hasDirectRequest: false,
+            latestUpdate: pr.updatedAt,
+          });
+        const group = authorMap.get(author);
+        group.prs.push(pr);
+        if (pr.isDirect && !pr.reviewedBefore) group.hasDirectRequest = true;
+        if (pr.updatedAt > group.latestUpdate)
+          group.latestUpdate = pr.updatedAt;
+      }
+      const groups = [...authorMap.values()].sort(
         (a, b) =>
-          Number(active.some((pr) => pr.author === b && pr.isDirect)) -
-          Number(active.some((pr) => pr.author === a && pr.isDirect)),
+          Number(b.hasDirectRequest) - Number(a.hasDirectRequest) ||
+          new Date(b.latestUpdate) - new Date(a.latestUpdate),
       );
-      content = html`${cards(pinned)}${authors.map(
-        (author) =>
-          html`<details
-            class="author-group"
-            open=${!state.collapsedAuthors.includes(author)}
-            onToggle=${(e) => {
-              if (
-                e.currentTarget.open === state.collapsedAuthors.includes(author)
-              )
-                setAuthors(toggle(state.collapsedAuthors, author));
-            }}
-          >
-            <summary>
-              ${author}<span class="count"
-                >${active.filter((pr) => pr.author === author).length}</span
+      content = html`<div class="priority-pinned">${cards(pinned)}</div>
+        <div class="priority-author-groups">
+          ${groups.map(
+            (group) =>
+              html`<details
+                class="author-group"
+                data-author=${group.author}
+                open=${!state.collapsedAuthors.includes(group.author)}
+                onToggle=${(e) => {
+                  if (
+                    e.currentTarget.open ===
+                    state.collapsedAuthors.includes(group.author)
+                  )
+                    setAuthors(toggle(state.collapsedAuthors, group.author));
+                }}
               >
-            </summary>
-            ${cards(active.filter((pr) => pr.author === author))}
-          </details>`,
-      )}${group(
-        "Drafts",
-        list.filter((pr) => pr.isDraft && !state.promoted.includes(pr.id)),
-      )}`;
+                <summary>
+                  ${safeUrl(group.avatar) && html`<img class="avatar" src=${safeUrl(group.avatar)} alt="" loading="lazy" />`}${group.author}
+                  <span class="count">${group.prs.length}</span>
+                </summary>
+                <div class="author-group-body">
+                  ${cards(group.prs.sort(latestFirst))}
+                </div>
+              </details>`,
+          )}
+        </div>
+        ${archiveGroup("✎ Drafts", drafts, "my-archive-group priority-drafts-group")}`;
     }
     if (key === "mine") {
       const active = list.filter((pr) => !state.stashed[pr.id]);
       content = html`${Object.entries({
-        ci_failing: "CI Failing",
-        changes_requested: "Changes Requested",
-        approved: "Approved",
-        awaiting: "Awaiting Review",
-      }).map(([status, name]) =>
-        group(
-          name,
-          active.filter((pr) => classifyMyPR(pr) === status),
-        ),
-      )}${group(
-        "Set Aside",
-        list.filter((pr) => state.stashed[pr.id]),
-      )}`;
-    }
-    return html`<section class="section" key=${key}>
-      <h2>
-        <button
-          class="section-toggle"
-          aria-expanded=${!state.sections[key]}
-          onClick=${() => setSections({ ...state.sections, [key]: !state.sections[key] })}
+        ci_failing: "❌ CI failing",
+        changes_requested: "💬 Changes requested",
+        approved: "✅ Approved — ready to merge",
+        awaiting: "⏳ Awaiting review",
+      }).map(([status, title]) => {
+        const items = active
+          .filter((pr) => classifyMyPR(pr) === status)
+          .sort(latestFirst);
+        return html`<div
+          class="subgroup"
+          data-status=${status}
+          style=${items.length ? undefined : { display: "none" }}
         >
-          ${label}<span class="count">${list.length}</span
-          ><span class="toggle">${state.sections[key] ? "+" : "−"}</span>
-        </button>
+          <h3>${title}</h3>
+          <div class="subgroup-body">${cards(items)}</div>
+        </div>`;
+      })}${archiveGroup("🗄 Set aside", list.filter((pr) => state.stashed[pr.id]).sort(latestFirst))}`;
+    }
+    const collapsed = !!state.sections[key];
+    const toggleSection = () =>
+      setSections({ ...state.sections, [key]: !collapsed });
+    return html`<section
+      key=${key}
+      class=${`section collapsible${collapsed ? " collapsed" : ""}`}
+      id=${`section-${id}`}
+    >
+      <h2
+        role="button"
+        tabindex="0"
+        aria-expanded=${!collapsed}
+        onClick=${toggleSection}
+        onKeyDown=${(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSection();
+          }
+        }}
+      >
+        <span>${icon}</span> ${label} <span class="count">${count}</span
+        ><span class="toggle">${collapsed ? "▸ expand" : "▾ collapse"}</span>
       </h2>
-      ${!state.sections[key] && html`<div class="cards">${content}</div>`}
+      <div class="cards" data-section=${id}>${content}</div>
     </section>`;
   });
 }

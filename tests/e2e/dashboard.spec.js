@@ -97,14 +97,15 @@ async function mockGitHub(
   return failures;
 }
 
-const card = (page, id) => page.locator(`[data-pr-id="${id}"]`);
+const card = (page, id) => page.locator(`article.card[data-pr-id="${id}"]`);
 const section = (page, name) =>
   page.locator("section.section").filter({
-    has: page.getByRole("button", { name: new RegExp(`^${name}`) }),
+    has: page.getByRole("button", { name: new RegExp(name) }),
   });
 async function ready(page) {
   await page.goto("/");
-  await expect(page.locator("#summary")).toContainText("2 pull requests");
+  await expect(page.locator("#summary")).toContainText("since last refresh");
+  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("gh_digest_last_snapshot") || "{}").prs || {}).length)).toBe(2);
   await expect(page.getByRole("alert")).toHaveCount(0);
 }
 
@@ -114,15 +115,17 @@ test("connects, refreshes successfully, and disconnects", async ({ page }) => {
   await page
     .getByLabel("GitHub token", { exact: true })
     .fill("synthetic-test-token");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await expect(page.locator("#summary")).toContainText("2 pull requests");
+  await page
+    .getByRole("button", { name: "Save and load", exact: true })
+    .click();
+  await expect(page.locator("#summary")).toContainText("since last refresh");
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.locator("#summary")).toContainText("2 pull requests");
+  await expect(page.locator("#summary")).toContainText("since last refresh");
   await expect(card(page, "ardoq/example#1")).toBeVisible();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Disconnect GitHub" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
-    page.getByRole("heading", { name: "Connect GitHub" }),
+    page.getByRole("heading", { name: "GitHub Digest — Setup" }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.getItem("gh_token")),
@@ -140,7 +143,7 @@ test("persists notes and moves cards through pin, archive, delete, restore and s
   await requestedCard
     .getByLabel("PR note")
     .fill("Check keyboard focus <script>literal text</script>");
-  await requestedCard.getByRole("button", { name: "Save note" }).click();
+  await requestedCard.getByLabel("PR note").press("Enter");
   await page.reload();
   await expect(requestedCard).toContainText(
     "Check keyboard focus <script>literal text</script>",
@@ -168,20 +171,25 @@ test("persists notes and moves cards through pin, archive, delete, restore and s
     .click();
   await expect(section(page, "Team Requests")).toContainText(requested.title);
   const mineCard = card(page, "ardoq/frontend#2");
-  await expand(page, "My Pull Requests");
+  await expand(page, "Your Open PRs");
   await mineCard.getByRole("button", { name: "Set aside for later" }).click();
-  await expect(mineCard.locator("..")).toContainText("Set Aside");
+  await expect(mineCard.locator("xpath=ancestor::details")).toContainText(
+    "Set aside",
+  );
+  await mineCard.locator("xpath=ancestor::details").locator("summary").click();
   await mineCard
     .getByRole("button", { name: "Move back to active list" })
     .click();
-  await expect(mineCard.locator("..")).toContainText("Awaiting Review");
+  await expect(
+    mineCard.locator("xpath=ancestor::div[@data-status='awaiting']"),
+  ).toContainText("Awaiting review");
   await requestedCard.getByRole("button", { name: "Delete note" }).click();
   await expect(requestedCard.locator(".card-note")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
 async function expand(page, name) {
-  const button = page.getByRole("button", { name: new RegExp(`^${name}`) });
+  const button = page.getByRole("button", { name: new RegExp(name) });
   if ((await button.getAttribute("aria-expanded")) === "false")
     await button.click();
 }
@@ -212,7 +220,7 @@ test("retains the complete cached snapshot when a CI enrichment request fails", 
     await page.evaluate(() => localStorage.getItem("gh_digest_last_snapshot")),
   ).toBe(previous);
   await expect(card(page, "ardoq/example#1")).toBeVisible();
-  await expect(page.locator("#summary")).toContainText("2 pull requests");
+  await expect(page.locator("#summary")).toContainText("since last refresh");
 });
 
 test("coalesces button and stale visibility refreshes into one API batch", async ({
@@ -233,7 +241,7 @@ test("coalesces button and stale visibility refreshes into one API batch", async
   await page.evaluate(() => {
     const now = Date.now();
     Date.now = () => now + 240000;
-    document.querySelector('[aria-label="Refresh"]').click();
+    document.querySelector("#refresh-btn").click();
     document.dispatchEvent(new Event("visibilitychange"));
     document.dispatchEvent(new Event("visibilitychange"));
   });
@@ -259,6 +267,7 @@ test("exports and imports notes without exporting or replacing credentials", asy
     ),
   );
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByText("Move browser settings", { exact: true }).click();
   const downloading = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Export settings", exact: true })
@@ -319,7 +328,7 @@ test("renders desktop in light and dark themes without overflow", async ({
   await mockGitHub(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await ready(page);
-  await expand(page, "My Pull Requests");
+  await expand(page, "Your Open PRs");
   for (const colorScheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme });
     expect(
@@ -332,6 +341,8 @@ test("renders desktop in light and dark themes without overflow", async ({
       fullPage: true,
     });
   }
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("desktop-settings.png"), fullPage: true });
 });
 
 test("filters authors and repositories, collapses sections, and saves settings", async ({
@@ -341,32 +352,34 @@ test("filters authors and repositories, collapses sections, and saves settings",
   await ready(page);
   await page.getByRole("button", { name: "outside-user", exact: true }).click();
   await expect(card(page, "ardoq/frontend#2")).toHaveCount(0);
-  await page.getByRole("button", { name: "Clear filters" }).click();
-  await page
-    .getByRole("combobox", { name: "Repository", exact: true })
-    .selectOption("ardoq/frontend");
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await page.locator('#repo-chips [data-repo="ardoq/frontend"]').click();
   await expect(card(page, "ardoq/example#1")).toHaveCount(0);
-  await page.getByRole("button", { name: "Clear filters" }).click();
-  await page.getByRole("button", { name: /^Team Requests/ }).click();
-  await expect(card(page, "ardoq/example#1")).toHaveCount(0);
-  await page.getByRole("button", { name: /^Team Requests/ }).click();
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await page.getByRole("button", { name: /Team Requests/ }).click();
+  await expect(card(page, "ardoq/example#1")).toBeHidden();
+  await page.getByRole("button", { name: /Team Requests/ }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
-    .getByLabel("Extra teammates", { exact: true })
-    .fill("team-user, another-user");
-  await page.getByLabel("CI check pattern").fill("optional-check");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+    .getByLabel("Add extra teammate", { exact: true })
+    .fill("another-user");
+  await page.locator("#extra-teammate-add").click();
+  await expect(page.locator("#extra-teammates-tags")).toContainText(
+    "another-user",
+  );
+  await page.getByLabel("Job name pattern").fill("optional-check");
+  await page.getByRole("button", { name: "Add rule", exact: true }).click();
+  await expect(page.locator("#ignore-rules")).toContainText("optional-check");
+  await page.getByRole("button", { name: "Close settings" }).click();
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.getByLabel("Extra teammates", { exact: true })).toHaveValue(
-    "team-user, another-user",
+  await expect(page.locator("#extra-teammates-tags")).toContainText(
+    "another-user",
   );
   await expect(page.getByRole("dialog")).toContainText("optional-check");
 });
 
-test("notification read and pin states survive reload", async ({ page }) => {
+test("notification read and pin states survive reload", async ({ page }, testInfo) => {
   await mockGitHub(page);
   await ready(page);
   await page.evaluate(
@@ -392,22 +405,25 @@ test("notification read and pin states survive reload", async ({ page }) => {
   );
   await page.reload();
   await page.getByRole("button", { name: /^Notifications/ }).click();
-  await page
-    .getByRole("button", { name: "Pin notification", exact: true })
-    .click();
+  for (const [name, width, height] of [["desktop", 1440, 1000], ["mobile", 390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.locator(".pr-row").click();
+    await page.screenshot({ path: testInfo.outputPath(`${name}-notifications.png`), fullPage: true });
+    await page.locator(".pr-row").click();
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
   await page.getByRole("button", { name: "Mark read", exact: true }).click();
-  await expect(page.locator(".notification-thread")).toHaveCount(0);
-  await page.getByRole("button", { name: "Pinned", exact: true }).click();
-  await expect(page.locator(".notification-thread")).toContainText(
-    "Synthetic mention",
-  );
+  await expect(page.locator(".pr-thread")).toHaveCount(0);
+  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await expect(page.locator(".pr-thread")).toContainText("Synthetic mention");
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Unpin notification" }),
+    page.getByRole("button", { name: "Unpin", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Mark unread", exact: true }).click();
   await page.getByRole("button", { name: "Unread", exact: true }).click();
-  await expect(page.locator(".notification-thread")).toBeVisible();
+  await expect(page.locator(".pr-thread")).toBeVisible();
 });
 
 test("recovers corrupt storage and stays within a mobile viewport", async ({

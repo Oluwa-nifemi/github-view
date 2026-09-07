@@ -21,6 +21,7 @@ export function useDashboard() {
     return cached.prs && typeof cached.prs === "object" ? cached : null;
   });
   const [busy, setBusy] = useState(false),
+    [previousTimestamp, setPreviousTimestamp] = useState(null),
     [error, setError] = useState(""),
     [settings, setSettings] = useState(false),
     [badges, setBadges] = useState({});
@@ -145,6 +146,7 @@ export function useDashboard() {
         const previous = sameAccount ? active.snapshot : null;
         const fresh = await buildSnapshot(active.token, previous);
         if (generation !== epoch.current) return;
+        setPreviousTimestamp(previous?.timestamp || null);
         const events =
           collectNotificationEvents(previous, fresh, session.USERNAME) || [];
         setNotifications((items) => retainNotifications([...events, ...items]));
@@ -279,6 +281,7 @@ export function useDashboard() {
     settings,
     setSettings,
     badges,
+    previousTimestamp,
     view,
     notifFilter,
     authors,

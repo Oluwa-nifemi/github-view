@@ -4,4 +4,6 @@ import { App } from "./ui/App.js";
 import "./styles/base.css";
 import "./styles/cards.css";
 import "./styles/app.css";
-render(html`<${App} />`, document.getElementById("app"));
+import "./styles/notifications.css";
+import "./styles/integration.css";
+render(html`<${App} />`, document.getElementById("root"));
