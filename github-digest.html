@@ -806,17 +806,19 @@
   }
   .pr-thread .pr-line1 .pr-title {
     font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0;
   }
+  .pr-thread .pr-line1 .pr-repo { flex-shrink: 0; }
+  .pr-thread .pr-line1 .pr-repo a {
+    color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none;
+  }
+  .pr-thread .pr-line1 .pr-repo a:hover { color: var(--accent); }
   .pr-thread .pr-latest {
     display: flex; align-items: center; gap: 6px;
     margin-top: 3px; font-size: 13px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .pr-thread .pr-latest .pr-repo-link a {
-    color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none;
-  }
-  .pr-thread .pr-latest .pr-repo-link a:hover { color: var(--accent); }
-  .pr-thread .pr-latest .sep { color: var(--border); margin: 0 2px; }
+  
   .pr-thread .pr-latest .th-actor { font-weight: 500; color: var(--notif-secondary); flex-shrink: 0; }
   .pr-thread .pr-latest .snippet {
     color: var(--muted); font-style: italic; font-weight: 400;
@@ -876,9 +878,9 @@
   /* Read state for PR threads */
   .pr-thread.is-read .pr-line1,
   .pr-thread.is-read .pr-latest,
-  .pr-thread.is-read .pr-meta .notif-time { color: var(--notif-read); }
-  .pr-thread.is-read .pr-latest .th-actor { color: var(--notif-read); }
-  .pr-thread.is-read .notif-action-tag { opacity: 0.5; }
+  .pr-thread.is-read .pr-meta .notif-time { color: var(--notif-secondary); }
+  .pr-thread.is-read .pr-latest .th-actor { color: var(--notif-secondary); }
+  .pr-thread.is-read .notif-action-tag { opacity: 0.7; }
   .pr-thread.is-read:hover .pr-line1,
   .pr-thread.is-read:hover .pr-latest,
   .pr-thread.is-read:hover .pr-meta .notif-time { color: var(--text); }
@@ -3253,7 +3255,7 @@
     return '<div class="pr-thread ' + readClass + '" data-notif-id="' + escapeHtml(allIds) + '">' +
       '<div class="pr-row">' +
         '<div class="pr-body">' +
-          '<div class="pr-line1"><span class="pr-title">' + prTitle + '</span></div>' +
+          '<div class="pr-line1"><span class="pr-title">' + prTitle + '</span><span class="pr-repo"><a href="' + escapeHtml(prUrl) + '" target="_blank">' + escapeHtml(repoLabel) + '</a></span></div>' +
           '<div class="pr-latest">' +
             '<span class="pr-repo-link"><a href="' + escapeHtml(prUrl) + '" target="_blank">' + escapeHtml(repoLabel) + '</a></span>' +
             '<span class="sep">·</span>' +
@@ -3539,25 +3541,8 @@ function renderNotifications() {
       return;
     }
 
-    const item = event.target.closest('.pr-thread');
-    if (!item) return;
-    const nid = item.dataset.notifId;
-    const items = loadNotifications();
-    const nids = new Set(nid.split(','));
-    let changed = false;
-    let openUrl = null;
-    for (const n of items) {
-      if (!nids.has(n.id)) continue;
-      if (!n.readAt) { n.readAt = Date.now(); changed = true; }
-      if (!openUrl && n.prUrl) openUrl = n.prUrl;
-    }
-    if (changed) {
-      saveNotifications(items);
-      renderNotifications();
-    }
-    const commentUrl = items.find(n => nids.has(n.id) && n.commentUrl)?.commentUrl;
-    if (commentUrl) window.open(commentUrl, '_blank');
-    else if (openUrl) window.open(openUrl, '_blank');
+    // PR thread clicks are handled by renderNotifications (expand/collapse).
+    // Navigation is via the repo link. No-op here.
   });
 
   // Mark all read
