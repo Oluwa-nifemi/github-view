@@ -3245,7 +3245,7 @@
       let commentsHtml = '';
       for (const ev of ag.events) {
         if (ev.preview) {
-          const commentUrl = ev.prUrl || '#';
+          const commentUrl = ev.commentUrl || ev.prUrl || '#';
           commentsHtml += '<div class="tl-comment"><a href="' + escapeHtml(commentUrl) + '" target="_blank">' + escapeHtml(ev.preview) + '</a></div>';
         }
       }
