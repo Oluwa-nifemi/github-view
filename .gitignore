@@ -1,3 +1,6 @@
-.gh-digest/
+/.gh-digest/*
+!/.gh-digest/watch.mjs
+!/.gh-digest/README.md
+!/.gh-digest/com.oluwanifemi.github-digest.plist
 local/
 .DS_Store

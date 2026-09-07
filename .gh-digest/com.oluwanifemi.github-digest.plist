@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.oluwanifemi.github-digest</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>-u</string>
+    <string>GH_TOKEN</string>
+    <string>-u</string>
+    <string>GITHUB_TOKEN</string>
+    <string>-u</string>
+    <string>GH_HOST</string>
+    <string>-u</string>
+    <string>GH_CONFIG_DIR</string>
+    <string>/Users/Oluwanifemi/.nvm/versions/node/v22.22.3/bin/node</string>
+    <string>/Users/Oluwanifemi/Documents/work/github-view/.gh-digest/watch.mjs</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/Oluwanifemi/Documents/work/github-view</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/Oluwanifemi</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/Oluwanifemi/Documents/work/github-view/.gh-digest/watch.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/Oluwanifemi/Documents/work/github-view/.gh-digest/watch.log</string>
+</dict>
+</plist>

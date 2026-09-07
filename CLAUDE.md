@@ -4,7 +4,9 @@ Single-file personal GitHub PR dashboard. `github-digest.html` is the whole app 
 
 ## When working here
 
-- **Read `github-digest.map.md` first** — it indexes the HTML so you don't need to load the whole 1400-line file to find things. Grep into the HTML for exact lines when needed.
+- **Read `github-digest.map.md` first** — it indexes the entire HTML file by section, line range, function, and data shape. Use it to locate what you need without loading the whole file.
+- **Never read the whole file.** It burns context. Use `rg` to find what you need, `sed -n` to read targeted line ranges, and `apply_patch` for surgical edits. The workflow is: (1) consult the map or `rg` to find the relevant lines, (2) `sed -n 'START,ENDp' github-digest.html` to read just that section, (3) `apply_patch` to edit. `cat github-digest.html` is banned — there is no reason to load ~3700 lines into memory.
+- **Update the map after every structural change.** If you add, remove, rename, or move a CSS block, DOM section, or JS function, update `github-digest.map.md` to reflect the new line ranges and structure. The map is only useful if it stays current. Treat an outdated map as a bug.
 - Only edit `github-digest.html`. There is no source-vs-build split.
 - The user is `Oluwa-nifemi` at org `ardoq`, team `team-ai` — these are hardcoded constants near the top of the IIFE.
 - All state persists in `localStorage` under `gh_*` keys (see map).
