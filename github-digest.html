@@ -3280,8 +3280,8 @@
 function renderNotifications() {
   const all = loadNotifications();
   const allByPR = groupNotificationsByPR(all);
-  const unreadCount = all.filter(n => !n.readAt && !n.isBot).length;
-  notifBadgeEl.textContent = unreadCount > 0 ? String(unreadCount) : '';
+  const unreadGroups = allByPR.filter(g => g.some(n => !n.readAt && !n.isBot));
+  notifBadgeEl.textContent = unreadGroups.length > 0 ? String(unreadGroups.length) : '';
 
     const markAllBtn = $('notif-mark-all');
     const totalUnread = all.filter(n => !n.readAt).length;
