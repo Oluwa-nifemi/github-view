@@ -84,7 +84,7 @@ export function App() {
               <h1>GitHub Digest</h1>
               <div class="controls">
                 <span id="last-refresh"
-                  >${snapshot ? `Last refreshed ${relativeTime(snapshot.timestamp)}` : "—"}</span
+                  >${snapshot ? (snapshot.partial ? "Loading remaining activity…" : `Last refreshed ${relativeTime(snapshot.timestamp)}`) : "—"}</span
                 >
                 <span id="spinner" class=${busy ? "spinning" : ""}></span>
                 <button
@@ -109,9 +109,9 @@ export function App() {
                 </button>
               </div>
             </header>
-            ${snapshot && html`<${Summary} badges=${badges} previousTimestamp=${previousTimestamp} />`}
+            ${snapshot && !snapshot.partial && html`<${Summary} badges=${badges} previousTimestamp=${previousTimestamp} />`}
             <div id="error-bar" class="error-bar" role="alert" hidden=${!error}>
-              ${error}${error && snapshot ? " Your last successful refresh is still shown." : ""}
+              ${error}${error && snapshot ? (snapshot.partial ? " Primary PRs are shown; remaining activity could not load." : " Your last successful refresh is still shown.") : ""}
             </div>
             <div class="view-tabs" id="view-tabs">
               <button

@@ -20,6 +20,7 @@ export function useDashboard() {
     const cached = read("gh_digest_last_snapshot", {});
     return cached.prs && typeof cached.prs === "object" ? cached : null;
   });
+  const [previewSnapshot, setPreviewSnapshot] = useState(null);
   const [busy, setBusy] = useState(false),
     [previousTimestamp, setPreviousTimestamp] = useState(null),
     [error, setError] = useState(""),
@@ -56,6 +57,7 @@ export function useDashboard() {
     rateUntil = useRef(0);
   current.current = { token, snapshot };
   function clearAccount(nextUsername) {
+    setPreviewSnapshot(null);
     const oldUsername = localStorage.getItem("gh_username");
     if (oldUsername)
       write(`gh_digest_account_${oldUsername}`, {
@@ -112,6 +114,7 @@ export function useDashboard() {
     }
   }
   function disconnect() {
+    setPreviewSnapshot(null);
     epoch.current++;
     localStorage.removeItem("gh_token");
     setToken("");
@@ -144,7 +147,10 @@ export function useDashboard() {
         session.USERNAME = user.login;
         localStorage.setItem("gh_username", user.login);
         const previous = sameAccount ? active.snapshot : null;
-        const fresh = await buildSnapshot(active.token, previous);
+        const fresh = await buildSnapshot(active.token, previous, (preview) => {
+          if (generation === epoch.current && !previous)
+            setPreviewSnapshot(preview);
+        });
         if (generation !== epoch.current) return;
         setPreviousTimestamp(previous?.timestamp || null);
         const events =
@@ -164,6 +170,7 @@ export function useDashboard() {
         );
         write("gh_digest_last_snapshot", fresh);
         setSnapshot(fresh);
+        setPreviewSnapshot(null);
       } catch (error) {
         if (generation === epoch.current) {
           if (error.resetMs) rateUntil.current = error.resetMs;
@@ -275,7 +282,7 @@ export function useDashboard() {
   };
   return {
     token,
-    snapshot,
+    snapshot: snapshot || previewSnapshot,
     busy,
     error,
     settings,

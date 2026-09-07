@@ -28,9 +28,9 @@ export function Auth({ connect, busy, error }) {
     </ol>
     <form
       onSubmit=${(event) => {
-      event.preventDefault();
-      if (token.trim()) connect(token.trim());
-    }}
+        event.preventDefault();
+        if (token.trim()) connect(token.trim());
+      }}
     >
       <label
         >Token (stored only in this browser's localStorage)

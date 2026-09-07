@@ -105,9 +105,52 @@ const section = (page, name) =>
 async function ready(page) {
   await page.goto("/");
   await expect(page.locator("#summary")).toContainText("since last refresh");
-  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("gh_digest_last_snapshot") || "{}").prs || {}).length)).toBe(2);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Object.keys(
+            JSON.parse(localStorage.getItem("gh_digest_last_snapshot") || "{}")
+              .prs || {},
+          ).length,
+      ),
+    )
+    .toBe(2);
   await expect(page.getByRole("alert")).toHaveCount(0);
 }
+
+test("shows primary PRs before notification history completes without caching partial data", async ({
+  page,
+}) => {
+  await mockGitHub(page);
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let count = 0;
+  await page.route("https://api.github.com/notifications?**", async (route) => {
+    count++;
+    await gate;
+    await route.fulfill({ json: [] });
+  });
+  await page.goto("/");
+  try {
+    await expect(card(page, "ardoq/example#1")).toBeVisible();
+    await expect(page.locator("#last-refresh")).toHaveText(
+      "Loading remaining activity…",
+    );
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("gh_digest_last_snapshot"),
+      ),
+    ).toBeNull();
+  } finally {
+    release();
+  }
+  await expect(page.locator("#refresh-btn")).toBeEnabled();
+  expect(count).toBe(1);
+  await expect(page.locator("#summary")).toBeVisible();
+});
 
 test("connects, refreshes successfully, and disconnects", async ({ page }) => {
   const errors = await mockGitHub(page, { authenticated: false });
@@ -342,7 +385,10 @@ test("renders desktop in light and dark themes without overflow", async ({
     });
   }
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.screenshot({ path: testInfo.outputPath("desktop-settings.png"), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath("desktop-settings.png"),
+    fullPage: true,
+  });
 });
 
 test("filters authors and repositories, collapses sections, and saves settings", async ({
@@ -379,7 +425,9 @@ test("filters authors and repositories, collapses sections, and saves settings",
   await expect(page.getByRole("dialog")).toContainText("optional-check");
 });
 
-test("notification read and pin states survive reload", async ({ page }, testInfo) => {
+test("notification read and pin states survive reload", async ({
+  page,
+}, testInfo) => {
   await mockGitHub(page);
   await ready(page);
   await page.evaluate(
@@ -405,10 +453,16 @@ test("notification read and pin states survive reload", async ({ page }, testInf
   );
   await page.reload();
   await page.getByRole("button", { name: /^Notifications/ }).click();
-  for (const [name, width, height] of [["desktop", 1440, 1000], ["mobile", 390, 844]]) {
+  for (const [name, width, height] of [
+    ["desktop", 1440, 1000],
+    ["mobile", 390, 844],
+  ]) {
     await page.setViewportSize({ width, height });
     await page.locator(".pr-row").click();
-    await page.screenshot({ path: testInfo.outputPath(`${name}-notifications.png`), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath(`${name}-notifications.png`),
+      fullPage: true,
+    });
     await page.locator(".pr-row").click();
   }
   await page.setViewportSize({ width: 1440, height: 1000 });

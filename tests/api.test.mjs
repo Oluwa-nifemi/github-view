@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fetchRecentNotifications } from "../src/github/notifications.js";
 import {
   apiURL,
   ghJson,
@@ -12,6 +13,31 @@ const response = (data, headers = {}, status = 200) =>
     status,
     headers,
   });
+
+test("notifications fetch only one page of at most 100 within six hours", async (t) => {
+  const now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url) => {
+    calls++;
+    const parsed = new URL(url);
+    assert.equal(parsed.searchParams.get("per_page"), "100");
+    assert.equal(Date.parse(parsed.searchParams.get("since")), now - 21600000);
+    return response(
+      Array.from({ length: 110 }, (_, id) => ({
+        id,
+        reason: id === 0 ? "mention" : "review_requested",
+        subject: { type: "PullRequest" },
+        updated_at: new Date(now - (id === 1 ? 21600001 : 0)).toISOString(),
+      })),
+      { link: '<https://api.github.com/notifications?page=2>; rel="next"' },
+    );
+  });
+  const result = await fetchRecentNotifications("notification-fixture");
+  assert.equal(calls, 1);
+  assert.equal(result.extraNotifs.length, 1);
+  assert.equal(result.notifications.length, 98);
+});
 
 test("API URL rejects external and credential-bearing URLs before fetch", () => {
   assert.equal(apiURL("/user"), "https://api.github.com/user");

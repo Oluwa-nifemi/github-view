@@ -7,17 +7,18 @@ import {
   getReviewDecisions,
 } from "../github/search.js";
 import { getTeammates } from "../github/teammates.js";
-import {
-  fetchRelevantNotifications,
-  fetchExtraNotifications,
-} from "../github/notifications.js";
+import { fetchRecentNotifications } from "../github/notifications.js";
 import { enrichRequested } from "./requested.js";
 import { enrichAgent } from "./agent.js";
 import { enrichMine } from "./mine.js";
 import { enrichHandled } from "./handled.js";
 import { enrichEngaged } from "./engaged.js";
 import { enrichTeammateOpen } from "./teammate-open.js";
-export async function buildSnapshot(token, cachedSnapshot) {
+export async function buildSnapshot(
+  token,
+  cachedSnapshot,
+  onProgress = () => {},
+) {
   const scope = JSON.stringify({
     ...config,
     IGNORED_REPOS: [...config.IGNORED_REPOS],
@@ -53,16 +54,12 @@ export async function buildSnapshot(token, cachedSnapshot) {
     authoredItems,
     assignedItems,
     teammateReviewItems,
-    notifications,
-    extraNotifs,
   ] = await allRequests([
     search(reviewQ, token),
     teamReviewSearch,
     search(authoredQ, token),
     search(assignedQ, token),
     teammateReviewSearches,
-    fetchRelevantNotifications(token),
-    fetchExtraNotifications(token),
   ]);
 
   // Merge team-review-requested results into reviewItems (dedupe by PR id).
@@ -120,11 +117,21 @@ export async function buildSnapshot(token, cachedSnapshot) {
     myItemsMap,
     myItems,
     reviewDecisions,
-    notifications,
+    notifications: [],
   };
   await enrichRequested(ctx);
   await enrichAgent(ctx);
   await enrichMine(ctx);
+  // Show primary PRs on first load without committing an incomplete cache.
+  onProgress({
+    version: 2,
+    scope,
+    prs: { ...prs },
+    mentions: [],
+    partial: true,
+  });
+  const { notifications, extraNotifs } = await fetchRecentNotifications(token);
+  ctx.notifications = notifications;
   await enrichHandled(ctx);
   await enrichEngaged(ctx);
   await enrichTeammateOpen(ctx);

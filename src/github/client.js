@@ -100,14 +100,14 @@ async function page(path, token) {
   return result;
 }
 
-export async function ghJson(path, token) {
+export async function ghJson(path, token, { paginate = true } = {}) {
   let current = await page(path, token);
   let data = current.data;
   const fields = ["items", "check_runs", "statuses", "users", "teams"].filter(
     (key) => Array.isArray(data?.[key]),
   );
   const seen = new Set([apiURL(path)]);
-  while (current.next) {
+  while (paginate && current.next) {
     const next = apiURL(current.next);
     if (seen.has(next))
       throw new Error("GitHub returned a repeating pagination link");

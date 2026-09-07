@@ -2,6 +2,8 @@
 
 A local GitHub PR dashboard built with Preact, preserving the original dashboard UI. Review requests, your PRs, team activity, notes, and notification triage stay in one place.
 
+Each refresh fetches at most 100 GitHub notifications updated in the past six hours, with no notification pagination. The Old filter uses retained local history. Primary PRs appear before notification enrichment finishes on first load; only complete snapshots are cached.
+
 ## Start
 
 Requires Node 22.12+ and npm.

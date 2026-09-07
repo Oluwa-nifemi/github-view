@@ -141,20 +141,20 @@ function Thread({ group, update }) {
     </div>
     <div class="pr-timeline">
       ${groupByAuthor(group).map(
-      (author) =>
-        html`<div class="tl-author-group">
-          <div class="tl-author-header">
-            <span class="tl-actor">${author.actor || "someone"}</span
-            >${author.isBot && html` <span class="bot-label">Bot</span>`}
-            <${ActionTag} type=${author.events[0].type} /><span
-              class="tl-time"
-              style=${{ marginLeft: "auto" }}
-              >${relativeTime(author.events[0].createdAt)}</span
-            >
-          </div>
-          ${author.events.filter((event) => event.preview).map((event) => html`<div class="tl-comment"><a href=${safeUrl(event.commentUrl || event.prUrl)} target="_blank" rel="noopener noreferrer">${event.preview}</a></div>`)}
-        </div>`,
-    )}
+        (author) =>
+          html`<div class="tl-author-group">
+            <div class="tl-author-header">
+              <span class="tl-actor">${author.actor || "someone"}</span
+              >${author.isBot && html` <span class="bot-label">Bot</span>`}
+              <${ActionTag} type=${author.events[0].type} /><span
+                class="tl-time"
+                style=${{ marginLeft: "auto" }}
+                >${relativeTime(author.events[0].createdAt)}</span
+              >
+            </div>
+            ${author.events.filter((event) => event.preview).map((event) => html`<div class="tl-comment"><a href=${safeUrl(event.commentUrl || event.prUrl)} target="_blank" rel="noopener noreferrer">${event.preview}</a></div>`)}
+          </div>`,
+      )}
     </div>
   </div>`;
 }
@@ -202,21 +202,21 @@ export function Notifications({ items, setItems, filter, setFilter }) {
     </div>
     <div class="notif-list" id="notif-list">
       ${sectionKeys.map((key, index) => {
-      const groups = visible.filter(
-        (group) =>
-          sectionKeys.find((candidate) =>
-            group.some((n) => notificationSection(n) === candidate),
-          ) === key,
-      );
-      return groups.length
-        ? html`<${Section}
-            key=${key}
-            label=${labels[index]}
-            groups=${groups}
-            update=${update}
-          />`
-        : null;
-    })}
+        const groups = visible.filter(
+          (group) =>
+            sectionKeys.find((candidate) =>
+              group.some((n) => notificationSection(n) === candidate),
+            ) === key,
+        );
+        return groups.length
+          ? html`<${Section}
+              key=${key}
+              label=${labels[index]}
+              groups=${groups}
+              update=${update}
+            />`
+          : null;
+      })}
       ${!visible.length && html`<div class="notif-empty">${filter === "unread" ? html`You're all caught up.<br /><span style=${{ fontSize: "12px" }}>New PR activity will appear here.</span>` : filter === "old" ? "No old notifications." : "No read notifications."}</div>`}
     </div>`;
 }
