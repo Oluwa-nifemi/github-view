@@ -12,6 +12,8 @@
     --panel: #ffffff;
     --text: #18181b;
     --muted: #71717a;
+    --notif-secondary: #52525b;
+    --notif-read: #71717a;
     --border: #e4e4e7;
     --hover: #f4f4f5;
     --accent: #0969da;
@@ -27,6 +29,8 @@
       --panel: #161b22;
       --text: #e6edf3;
       --muted: #8b949e;
+      --notif-secondary: #b7c0ca;
+      --notif-read: #9da7b1;
       --border: #30363d;
       --hover: #1f242c;
       --accent: #58a6ff;
@@ -767,214 +771,155 @@
   .notif-filter-btn:hover { color: var(--text); border-color: #484f58; background: var(--panel); }
   .notif-filter-btn.active { background: rgba(31, 111, 235, .18); border-color: #1f6feb; color: #58a6ff; }
 
-  .notif-list { display: flex; flex-direction: column; gap: 2px; padding-bottom: 40px; }
+  .notif-list { display: flex; flex-direction: column; padding-bottom: 40px; }
 
-  .notif-group + .notif-group { margin-top: 18px; }
-  .notif-group-label {
-    margin: 0 0 6px;
-    padding: 0 2px;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .06em;
+  /* PR-thread notification sections */
+  .notif-section { margin-bottom: 8px; }
+  .notif-section > h2 {
+    margin: 0; padding: 6px 2px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); background: transparent;
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; user-select: none;
   }
+  .notif-section.collapsed .notif-cards { display: none; }
+  .notif-section h2 .collapse-btn {
+    margin-left: auto; color: var(--muted); font-size: 12px;
+    font-weight: 400; text-transform: none; letter-spacing: normal;
+  }
+  .notif-section.collapsed h2 .collapse-btn::after { content: "\25b8 expand"; }
+  .notif-section:not(.collapsed) h2 .collapse-btn::after { content: "\25be collapse"; }
 
-  .notif-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    font-size: 13px;
-    color: var(--text);
-    text-decoration: none;
-    transition: background 0.12s, border-color 0.12s;
-    cursor: pointer;
+  /* PR thread row */
+  .pr-thread { border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); }
+  .pr-thread .pr-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; cursor: pointer; transition: background 0.12s;
   }
-  .notif-item:hover { background: #1c2128; border-color: #484f58; }
-  .notif-item:focus-visible { outline: 2px solid #1f6feb; outline-offset: 2px; }
-  .notif-item.read {
-    opacity: 1;
-    background: transparent;
-    border-color: transparent;
-  }
-  .notif-item.read .notif-body,
-  .notif-item.read .notif-time,
-  .notif-item.read .notif-pr { color: var(--muted); }
-  .notif-item.read:hover { background: #1c2128; border-color: #30363d; }
-  .notif-item.notif-ambient {
-    background: transparent;
-    border-color: transparent;
-    padding: 5px 14px;
-    font-size: 12px;
-    opacity: 0.8;
-  }
-  .notif-item.notif-ambient .notif-icon {
-    width: 18px; height: 18px;
-    font-size: 10px;
-  }
-  .notif-item.notif-ambient .notif-unread-dot { display: none; }
-  .notif-item.notif-ambient .notif-pr { font-size: 11px; }
-  .notif-item.notif-action {
-    border-left: 2px solid var(--accent, #1f6feb);
-  }
-  .notif-item.notif-action.notif-type-reply { border-left-color: #a371f7; }
-  .notif-item.notif-action.notif-type-changes { border-left-color: #f85149; }
-  .notif-item.notif-action.notif-type-approved { border-left-color: #3fb950; }
-  .notif-item.notif-action.notif-type-mentioned { border-left-color: #d29922; }
-  .notif-item.notif-action.notif-type-assigned { border-left-color: #58a6ff; }
+  .pr-thread .pr-row:hover { background: var(--hover); }
+  .pr-thread .pr-body { flex: 1; min-width: 0; }
 
-  .notif-item.notif-fyi {
-    background: transparent;
-    border-color: transparent;
+  .pr-thread .pr-line1 {
+    font-size: 14px; line-height: 1.35;
+    display: flex; align-items: baseline; gap: 6px;
   }
-  .notif-item.notif-fyi .notif-actor { color: var(--text); }
-  .notif-item.notif-fyi .notif-body,
-  .notif-item.notif-fyi .notif-time { color: var(--muted); }
-  .notif-item.notif-fyi .notif-icon {
-    width: 18px; height: 18px;
-    font-size: 10px;
+  .pr-thread .pr-line1 .pr-title {
+    font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .notif-item .notif-icon {
-    flex-shrink: 0;
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    line-height: 1;
-    margin-top: 1px;
+  .pr-thread .pr-latest {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 3px; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .notif-icon--approved { background: rgba(63, 185, 80, .15); color: #3fb950; }
-  .notif-icon--changes { background: rgba(210, 153, 34, .15); color: #d29922; }
-  .notif-icon--comment { background: rgba(31, 111, 235, .15); color: #58a6ff; }
-  .notif-icon--reply { background: rgba(163, 113, 247, .15); color: #a371f7; }
-  .notif-icon--request { background: rgba(248, 81, 73, .15); color: #f85149; }
-  .notif-icon--mention { background: rgba(210, 153, 34, .15); color: #d29922; }
-  .notif-icon--closed { background: rgba(163, 113, 247, .15); color: #a371f7; }
-  .notif-icon--assigned { background: rgba(31, 111, 235, .15); color: #58a6ff; }
-  .notif-icon--team { background: rgba(210, 153, 34, .15); color: #d29922; }
-  .notif-icon--default { background: rgba(139, 148, 158, .15); color: var(--muted); }
-  .notif-item .notif-body { flex: 1; min-width: 0; }
-  .notif-item .notif-actor { font-weight: 600; }
-  .notif-item .notif-pr { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .notif-item .notif-preview {
-    font-size: 12px;
-    color: var(--muted);
-    white-space: nowrap;
+  .pr-thread .pr-latest .pr-repo-link a {
+    color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none;
+  }
+  .pr-thread .pr-latest .pr-repo-link a:hover { color: var(--accent); }
+  .pr-thread .pr-latest .sep { color: var(--border); margin: 0 2px; }
+  .pr-thread .pr-latest .th-actor { font-weight: 500; color: var(--notif-secondary); flex-shrink: 0; }
+  .pr-thread .pr-latest .snippet {
+    color: var(--muted); font-style: italic; font-weight: 400;
+    overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .pr-thread .pr-latest .more-count {
+    color: var(--muted); font-size: 12px; flex-shrink: 0; margin-left: 2px;
+  }
+  .pr-thread .pr-meta { display: flex; align-items: flex-start; flex-shrink: 0; padding-top: 2px; }
+  .pr-thread .pr-meta .notif-time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  /* Action tags */
+  .notif-action-tag {
+    display: inline-block; font-size: 11px; font-weight: 500;
+    padding: 1px 7px; border-radius: 3px;
+    white-space: nowrap; flex-shrink: 0; line-height: 1.5;
+  }
+  .notif-action-tag.tag-approved { background: rgba(63,185,80,.12); color: #3fb950; }
+  .notif-action-tag.tag-changes { background: rgba(219,120,90,.12); color: #e0896a; }
+  .notif-action-tag.tag-replied { background: rgba(163,113,247,.12); color: #a371f7; }
+  .notif-action-tag.tag-mentioned { background: rgba(210,153,34,.12); color: #d29922; }
+  .notif-action-tag.tag-assigned { background: rgba(88,166,255,.12); color: #58a6ff; }
+
+  /* Expanded timeline */
+  .pr-thread .pr-timeline { display: none; padding: 2px 12px 10px 28px; }
+  .pr-thread.expanded .pr-timeline { display: block; }
+
+  .tl-author-group {
+    padding: 6px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  }
+  .tl-author-group:last-child { border-bottom: none; }
+  .tl-author-group .tl-author-header {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .tl-author-group .tl-author-header .tl-actor { font-weight: 600; color: var(--text); }
+  .tl-author-group .tl-author-header .tl-time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .tl-author-group .tl-comment {
+    font-size: 13px; font-style: italic; color: var(--muted);
+    line-height: 1.45; padding: 3px 0;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    margin-top: 2px;
-    font-style: italic;
   }
-  .notif-item .notif-time { color: var(--muted); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-  .notif-item .notif-bot-label {
-    display: inline-block;
-    font-size: 11px;
-    background: transparent;
-    color: var(--muted);
-    padding: 2px 6px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    margin-left: 6px;
-    line-height: 1;
-    vertical-align: 1px;
+  .tl-author-group .tl-comment + .tl-comment {
+    border-top: 1px solid color-mix(in srgb, var(--border) 20%, transparent);
+    margin-top: 3px; padding-top: 6px;
   }
-  .notif-item .notif-unread-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #1f6feb;
-    flex-shrink: 0;
-    margin-top: 5px;
+  .tl-author-group .tl-comment a { color: inherit; text-decoration: none; display: block; }
+  .tl-author-group .tl-comment a:hover { color: var(--notif-secondary); }
+  .bot-label {
+    display: inline-block; font-size: 10px; color: var(--muted);
+    padding: 1px 5px; border: 1px solid var(--border); border-radius: 999px;
+    margin-left: 3px; vertical-align: 1px;
   }
-  .notif-item.read .notif-unread-dot { background: transparent; }
-  .notif-item .notif-chevron {
-    color: var(--muted);
-    font-size: 16px;
-    flex-shrink: 0;
-    margin-top: 2px;
-    opacity: 0;
-    transition: opacity 0.12s;
-  }
-  .notif-item:hover .notif-chevron { opacity: 0.6; }
 
-  .notif-severity {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 6px;
-    vertical-align: 1px;
-  }
-  .notif-severity--action { background: rgba(248, 81, 73, .15); color: #f85149; }
-  .notif-severity--review { background: rgba(210, 153, 34, .15); color: #d29922; }
+  /* Read state for PR threads */
+  .pr-thread.is-read .pr-line1,
+  .pr-thread.is-read .pr-latest,
+  .pr-thread.is-read .pr-meta .notif-time { color: var(--notif-read); }
+  .pr-thread.is-read .pr-latest .th-actor { color: var(--notif-read); }
+  .pr-thread.is-read .notif-action-tag { opacity: 0.5; }
+  .pr-thread.is-read:hover .pr-line1,
+  .pr-thread.is-read:hover .pr-latest,
+  .pr-thread.is-read:hover .pr-meta .notif-time { color: var(--text); }
+  .pr-thread.is-read:hover .pr-latest .th-actor { color: var(--text); }
+  .pr-thread.is-read:hover .notif-action-tag { opacity: 1; }
 
-  .notif-item .notif-actions {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.12s;
+  /* Hover actions on PR threads */
+  .pr-thread .notif-actions {
+    display: flex; gap: 4px; flex-shrink: 0;
+    opacity: 0; transition: opacity 0.12s;
   }
-  .notif-item:hover .notif-actions { opacity: 1; }
+  .pr-thread .pr-row:hover .notif-actions { opacity: 1; }
   .notif-action-btn {
-    font-size: 11px !important;
-    padding: 2px 6px !important;
-    background: var(--panel) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 4px !important;
-    color: var(--muted) !important;
-    cursor: pointer !important;
-    white-space: nowrap;
+    font-size: 13px !important; padding: 4px 8px !important;
+    background: var(--panel) !important; border: 1px solid var(--border) !important;
+    border-radius: 4px !important; color: var(--muted) !important;
+    cursor: pointer !important; white-space: nowrap;
   }
   .notif-action-btn:hover {
-    color: var(--text) !important;
-    border-color: #484f58 !important;
-    background: #1c2128 !important;
-    filter: none !important;
+    color: var(--text) !important; border-color: #484f58 !important;
+    background: #1c2128 !important; filter: none !important;
   }
+  .notif-action-btn.is-pinned { color: #d29922 !important; }
 
   .notif-empty {
-    display: grid;
-    place-items: center;
-    min-height: 180px;
-    margin-top: 16px;
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-    background: var(--panel);
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
-    line-height: 1.6;
+    display: grid; place-items: center; min-height: 180px;
+    margin-top: 16px; border: 1px dashed var(--border); border-radius: 8px;
+    background: var(--panel); color: var(--muted); font-size: 13px;
+    text-align: center; line-height: 1.6;
   }
 
   .notif-mark-all {
-    margin-left: 8px;
-    padding-left: 16px;
+    margin-left: 8px; padding-left: 16px;
     border-left: 1px solid var(--border);
-    font-size: 12px;
-    color: #1f6feb;
-    background: none;
-    border-top: none;
-    border-right: none;
-    border-bottom: none;
-    cursor: pointer;
-    padding: 4px 8px 4px 16px;
-    border-radius: 0 !important;
+    font-size: 12px; color: #1f6feb;
+    background: none; border-top: none; border-right: none; border-bottom: none;
+    cursor: pointer; padding: 4px 8px 4px 16px; border-radius: 0 !important;
   }
   .notif-mark-all:hover { text-decoration: underline; }
   .notif-mark-all:disabled {
-    color: var(--muted);
-    cursor: default;
-    text-decoration: none !important;
+    color: var(--muted); cursor: default; text-decoration: none !important;
   }
 </style>
 <body>
@@ -1069,8 +1014,8 @@
 
   <div id="notifications-view">
     <div class="notif-controls">
-      <button class="notif-filter-btn active" data-notif-filter="needs-you">Needs you</button>
-      <button class="notif-filter-btn" data-notif-filter="all">All</button>
+      <button class="notif-filter-btn active" data-notif-filter="unread">Unread</button>
+      <button class="notif-filter-btn" data-notif-filter="read">Read</button>
       <button class="notif-filter-btn" data-notif-filter="old">Old</button>
       <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
     </div>
@@ -1168,7 +1113,8 @@
 (() => {
   // ---- Config ----
   const ORG = 'ardoq';
-  const TEAM = 'team-ai';
+  const TEAMS = ['team-ai', 'team-aiops'];
+  const IGNORED_REPOS = new Set(['ardoq/ardoq-data-dbt']);
   // ---- Per-user config (edit these or override via localStorage gh_digest_user_config) ----
   const DEFAULT_USER_CONFIG = {
     extraTeammates: ['saksam760', 'nataliadeluna'],   // logins treated as teammates beyond the GitHub team roster
@@ -1457,7 +1403,8 @@
     return data;
   }
   async function search(query, token) {
-    const data = await ghJson(`/search/issues?q=${encodeURIComponent(query)}&per_page=100`, token);
+    const ignoredReposQuery = [...IGNORED_REPOS].map(repo => `-repo:${repo}`).join(' ');
+    const data = await ghJson(`/search/issues?q=${encodeURIComponent(`${query} ${ignoredReposQuery}`.trim())}&per_page=100`, token);
     return data.items || [];
   }
   async function ghGraphQL(query, token) {
@@ -1488,7 +1435,8 @@
   async function searchByTeammates(qualifier, logins, token, extraQ = '') {
     if (logins.length === 0) return [];
     const qualifierStr = logins.map(login => `${qualifier}:${login}`).join(' ');
-    const q = `is:pr is:open archived:false org:${ORG} ${qualifierStr} ${extraQ}`.trimEnd();
+    const ignoredReposQuery = [...IGNORED_REPOS].map(repo => `-repo:${repo}`).join(' ');
+    const q = `is:pr is:open archived:false org:${ORG} ${qualifierStr} ${extraQ} ${ignoredReposQuery}`.trim();
     const gql = `{ search(query: ${JSON.stringify(q)}, type: ISSUE, first: 100) {
       nodes { ... on PullRequest {
         number title url updatedAt createdAt isDraft
@@ -1548,17 +1496,27 @@
     const cached = localStorage.getItem(STORAGE_TEAMMATES_DATA);
     if (cached) {
       try {
-        const { members, fetchedAt } = JSON.parse(cached);
-        if (Date.now() - fetchedAt < TEAMMATES_TTL_MS) {
+        const { members, fetchedAt, teams } = JSON.parse(cached);
+        if (Date.now() - fetchedAt < TEAMMATES_TTL_MS
+          && Array.isArray(teams)
+          && teams.length === TEAMS.length
+          && teams.every(team => TEAMS.includes(team))) {
           return new Set([...members, ...EXTRA_TEAMMATES].filter(login => !EXCLUDED_TEAMMATES.includes(login)));
         }
       } catch {}
     }
     try {
-      const members = await ghJson(`/orgs/${ORG}/teams/${TEAM}/members?per_page=100`, token);
-      const logins = members.map(m => m.login);
+      const memberResults = await Promise.allSettled(
+        TEAMS.map(team => ghJson(`/orgs/${ORG}/teams/${team}/members?per_page=100`, token)),
+      );
+      const memberLists = memberResults
+        .filter(result => result.status === 'fulfilled')
+        .map(result => result.value);
+      if (memberLists.length === 0) throw new Error('No team rosters could be loaded');
+      const logins = [...new Set(memberLists.flatMap(members => members.map(member => member.login)))];
       localStorage.setItem(STORAGE_TEAMMATES_DATA, JSON.stringify({
         members: logins,
+        teams: TEAMS,
         fetchedAt: Date.now(),
       }));
       return new Set([...logins, ...EXTRA_TEAMMATES].filter(login => !EXCLUDED_TEAMMATES.includes(login)));
@@ -1576,6 +1534,7 @@
     if (!match) return null;
     const repo = match[1];
     if (!repo.startsWith(`${ORG}/`)) return null;
+    if (IGNORED_REPOS.has(repo)) return null;
     return { repo, number: parseInt(match[2], 10) };
   }
 
@@ -1699,17 +1658,21 @@
     const cachedPRs = cachedSnapshot?.prs || {};
 
     const reviewQ = `is:pr is:open archived:false review-requested:${USERNAME} org:${ORG}`;
-    const teamReviewQ = `is:pr is:open archived:false team-review-requested:${ORG}/${TEAM} org:${ORG}`;
     const authoredQ = `is:pr is:open archived:false author:${USERNAME} org:${ORG}`;
     const assignedQ = `is:pr is:open archived:false assignee:${USERNAME} org:${ORG}`;
 
     const teammateLoginsForSearch = [...teammates].filter(login => login !== USERNAME);
     const teammateReviewSearches = searchByTeammates('review-requested', teammateLoginsForSearch, token)
       .catch(err => { console.warn('teammate review-requested fetch failed:', err); return []; });
+    const teamReviewSearch = searchByTeammates(
+      'team-review-requested',
+      TEAMS.map(team => `${ORG}/${team}`),
+      token,
+    ).catch(err => { console.warn('team-review-requested fetch failed:', err); return []; });
 
     const [reviewItems, teamReviewItems, authoredItems, assignedItems, teammateReviewItems, notifications, extraNotifs] = await Promise.all([
       search(reviewQ, token),
-      search(teamReviewQ, token).catch(err => { console.warn('team-review-requested fetch failed:', err); return []; }),
+      teamReviewSearch,
       search(authoredQ, token),
       search(assignedQ, token),
       teammateReviewSearches,
@@ -2043,7 +2006,7 @@
         // this PR (e.g. GitHub search lag) — treat it as a pending team request (section 3)
         // rather than assuming it was already handled.
         const teamStillRequested = (prDetail.requested_teams || [])
-          .some(t => t.slug === TEAM);
+          .some(t => TEAMS.includes(t.slug));
         const isDirect = (prDetail.requested_reviewers || [])
           .some(u => u.login === USERNAME);
 
@@ -2248,7 +2211,7 @@
       }
     }));
 
-    // Section 7: Teammates' Open PRs — every open PR authored by a team-ai member
+    // Section 7: Teammates' Open PRs — every open PR authored by a team member
     // that's had activity in the last 14 days and isn't already in another section.
     // No per-PR enrichment (just the search result data) — this section is for
     // casual awareness, not action.
@@ -2301,7 +2264,7 @@
         updatedAt: n.updated_at,
         url: repo && number ? `https://github.com/${repo}/pull/${number}` : null,
       };
-    }).filter(m => m.prId);
+    }).filter(m => m.prId && !IGNORED_REPOS.has(m.repo));
 
     return { prs, mentions, timestamp: new Date().toISOString() };
   }
@@ -2551,6 +2514,7 @@
     if (!wantTeammates && !wantAuthors && !wantRepos) return prs;
     const filtered = {};
     for (const [prId, pr] of Object.entries(prs)) {
+      if (IGNORED_REPOS.has(pr.repo)) continue;
       // Author/teammate condition (combined OR — both are "who" filters)
       let whoMatch = true;
       if (wantTeammates || wantAuthors) {
@@ -2611,7 +2575,7 @@
         case 1: // legacy cached value from before "Needs Your Attention" was folded in
         case 2:
         case 3:
-          if (pr.authorIsTeammate) buckets.teamTeammates.push(pr);
+          if (teammates.has(pr.author)) buckets.teamTeammates.push(pr);
           else buckets.teamOthers.push(pr);
           break;
         case 4: buckets.mine.push(pr); break;
@@ -2640,7 +2604,7 @@
       .sort((a, b) => Number(a.isDraft) - Number(b.isDraft));
     const priorityRest = buckets.teamTeammates.filter(pr => !pr.isDraft && !isPromoted(pr));
     const section3El = $('section-3');
-    section3El.querySelector('.count').textContent = buckets.teamTeammates.length;
+    section3El.querySelector('.count').textContent = priorityRest.length + priorityPinned.length;
 
     // Pinned PRs render at the top, outside author groups
     section3El.querySelector('.priority-pinned').innerHTML = priorityPinned
@@ -3126,7 +3090,10 @@
   const prsViewEl = $('prs-view');
 
   function loadNotifications() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_NOTIFICATIONS) || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_NOTIFICATIONS) || '[]')
+        .filter(notification => !IGNORED_REPOS.has((notification.prId || '').split('#')[0]));
+    } catch { return []; }
   }
   function saveNotifications(items) {
     const botAutoReadMs = 24 * 60 * 60 * 1000;
@@ -3135,9 +3102,9 @@
         n.readAt = Date.now();
       }
     }
-    // Expire read items older than 2 days
+    // Expire read items older than 2 days. Pinned items stay until unpinned.
     const cutoff = Date.now() - 2 * 24 * 60 * 60 * 1000;
-    const kept = items.filter(n => !n.readAt || n.readAt > cutoff);
+    const kept = items.filter(n => n.pinnedAt || !n.readAt || n.readAt > cutoff);
     localStorage.setItem(STORAGE_NOTIFICATIONS, JSON.stringify(kept));
   }
 
@@ -3145,57 +3112,47 @@
     try { return JSON.parse(localStorage.getItem(STORAGE_NOTIF_PREFS) || '{}'); } catch { return {}; }
   }
 
-  let currentNotifFilter = 'needs-you';
+  let currentNotifFilter = 'unread';
 
-  function notifIcon(type) {
-    switch (type) {
-      case 'review_approved': return '<div class="notif-icon notif-icon--approved">✓</div>';
-      case 'review_changes_requested': return '<div class="notif-icon notif-icon--changes">!</div>';
-      case 'comment_on_my_pr': return '<div class="notif-icon notif-icon--comment">💬</div>';
-      case 'comment_on_watched_pr': return '<div class="notif-icon notif-icon--comment">💬</div>';
-      case 'reply_to_my_comment': return '<div class="notif-icon notif-icon--reply">↩</div>';
-      case 'direct_request': return '<div class="notif-icon notif-icon--request">⬤</div>';
-      case 'new_review': return '<div class="notif-icon notif-icon--comment">📝</div>';
-      case 'mentioned': return '<div class="notif-icon notif-icon--mention">@</div>';
-      case 'pr_closed': return '<div class="notif-icon notif-icon--closed">⊘</div>';
-      case 'assigned': return '<div class="notif-icon notif-icon--assigned">←</div>';
-      case 'team_mentioned': return '<div class="notif-icon notif-icon--team">@</div>';
-      default: return '<div class="notif-icon notif-icon--default">•</div>';
+  // ---- Notification tier: needs-you vs teammates vs activity ----
+  function notifSection(n) {
+    if (n.isBot) return 'activity';
+    const username = USERNAME ? USERNAME.trim() : '';
+    // Direct actions on you = "needs-you"
+    if (username) {
+      const esc = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const mentionPat = new RegExp('(^|[^a-z0-9-])@' + esc + '(?![a-z0-9-])', 'i');
+      if (mentionPat.test(n.preview || '')) return 'needs-you';
     }
-  }
-
-  function notifTier(n) {
-    if (n.isBot) return 'ambient';
     switch (n.type) {
       case 'reply_to_my_comment':
       case 'review_changes_requested':
       case 'mentioned':
       case 'assigned':
-        return 'action';
+        return 'needs-you';
       case 'review_approved':
-        return n.onMyPR ? 'action' : 'fyi';
+        return n.onMyPR ? 'needs-you' : ((n.actor && teammates.has(n.actor)) ? 'teammates' : 'activity');
       case 'comment_on_my_pr':
-        return n.onMyPR ? 'action' : 'fyi';
+        return n.onMyPR ? 'needs-you' : ((n.actor && teammates.has(n.actor)) ? 'teammates' : 'activity');
       default:
-        return 'fyi';
+        return (n.actor && teammates.has(n.actor)) ? 'teammates' : 'activity';
     }
   }
 
-  function notifLabel(n) {
-    const actor = escapeHtml(n.actor || 'someone');
-    const botTag = n.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
-    switch (n.type) {
-      case 'review_approved': return `<span class="notif-actor">${actor}</span>${botTag} approved`;
-      case 'review_changes_requested': return `<span class="notif-actor">${actor}</span>${botTag} requested changes`;
-      case 'comment_on_my_pr': return `<span class="notif-actor">${actor}</span>${botTag} commented`;
-      case 'comment_on_watched_pr': return `<span class="notif-actor">${actor}</span>${botTag} commented`;
-      case 'reply_to_my_comment': return `<span class="notif-actor">${actor}</span>${botTag} replied to you`;
-      case 'new_review': return `<span class="notif-actor">${actor}</span>${botTag} reviewed`;
-      case 'mentioned': return `You were mentioned`;
-      case 'pr_closed': return `PR was closed or merged`;
-      case 'assigned': return `You were assigned`;
-      case 'team_mentioned': return `team-ai was mentioned`;
-      default: return `<span class="notif-actor">${actor}</span>${botTag} activity`;
+  // Backward compat: notifTier still used for unread badge count
+  function notifTier(n) {
+    const sec = notifSection(n);
+    return sec === 'needs-you' ? 'action' : (sec === 'teammates' ? 'fyi' : 'ambient');
+  }
+
+  function actionTagHtml(type) {
+    switch (type) {
+      case 'review_approved': return '<span class="notif-action-tag tag-approved">approved</span>';
+      case 'review_changes_requested': return '<span class="notif-action-tag tag-changes">changes requested</span>';
+      case 'reply_to_my_comment': return '<span class="notif-action-tag tag-replied">replied</span>';
+      case 'mentioned': return '<span class="notif-action-tag tag-mentioned">mentioned</span>';
+      case 'assigned': return '<span class="notif-action-tag tag-assigned">assigned</span>';
+      default: return ''; // plain comments get no tag
     }
   }
 
@@ -3211,183 +3168,173 @@
       case 'mentioned': return 'mentioned you';
       case 'pr_closed': return 'closed/merged';
       case 'assigned': return 'assigned you';
-      case 'team_mentioned': return 'mentioned team-ai';
+      case 'team_mentioned': return 'mentioned a team';
       default: return 'activity';
     }
   }
 
-  function groupNotifications(items) {
-    const GROUP_WINDOW_MS = 30 * 60 * 1000;
+  // Group notifications by PR
+  function groupNotificationsByPR(items) {
+    const prMap = new Map();
+    for (const n of items) {
+      const key = n.prId || n.id;
+      if (!prMap.has(key)) prMap.set(key, []);
+      prMap.get(key).push(n);
+    }
+    // Sort PR groups by most recent event
+    return [...prMap.values()].sort((a, b) => {
+      const aTime = Math.max(...a.map(n => new Date(n.createdAt).getTime()));
+      const bTime = Math.max(...b.map(n => new Date(n.createdAt).getTime()));
+      return bTime - aTime;
+    });
+  }
+
+  // Group events within a PR by author
+  function groupByAuthor(events) {
     const groups = [];
-    const used = new Set();
-    for (let i = 0; i < items.length; i++) {
-      if (used.has(i)) continue;
-      const n = items[i];
-      const group = [n];
-      used.add(i);
-      // Bots roll up by PR; human activity stays actor- and time-scoped.
-      if (n.prId && (n.isBot || n.actor)) {
-        const nGroupKey = n.isBot ? `bot:${n.prId}` : `${n.actor}:${n.prId}`;
-        const nTime = new Date(n.createdAt).getTime();
-        for (let j = i + 1; j < items.length; j++) {
-          if (used.has(j)) continue;
-          const m = items[j];
-          const mGroupKey = m.isBot ? `bot:${m.prId}` : `${m.actor}:${m.prId}`;
-          if (mGroupKey !== nGroupKey || m.isBot !== n.isBot) continue;
-          if (n.isBot) {
-            group.push(m);
-            used.add(j);
-            continue;
-          }
-          const mTime = new Date(m.createdAt).getTime();
-          if (Math.abs(nTime - mTime) > GROUP_WINDOW_MS) continue;
-          group.push(m);
-          used.add(j);
-        }
+    const authorMap = new Map();
+    for (const ev of events) {
+      const key = ev.isBot ? 'bot:' + (ev.actor || 'bot') : (ev.actor || 'unknown');
+      if (!authorMap.has(key)) {
+        const group = { actor: ev.actor, isBot: ev.isBot, events: [] };
+        authorMap.set(key, group);
+        groups.push(group);
       }
-      groups.push(group);
+      authorMap.get(key).events.push(ev);
     }
     return groups;
   }
 
-  function notifActionButtons(readClass, ids) {
-    if (readClass === 'read') {
-      return `<div class="notif-actions"><button class="notif-action-btn" data-notif-action="unread" data-notif-ids="${escapeHtml(ids)}">Mark unread</button></div>`;
-    }
-    return `<div class="notif-actions"><button class="notif-action-btn" data-notif-action="read" data-notif-ids="${escapeHtml(ids)}">Mark read</button></div>`;
+  function notifActionButtons(readClass, ids, isPinned) {
+    const readAction = readClass === 'read'
+      ? '<button class="notif-action-btn" data-notif-action="unread" data-notif-ids="' + escapeHtml(ids) + '">Mark unread</button>'
+      : '<button class="notif-action-btn" data-notif-action="read" data-notif-ids="' + escapeHtml(ids) + '">Mark read</button>';
+    const pinAction = '<button class="notif-action-btn ' + (isPinned ? 'is-pinned' : '') + '" data-notif-action="' + (isPinned ? 'unpin' : 'pin') + '" data-notif-ids="' + escapeHtml(ids) + '">' + (isPinned ? 'Unpin' : 'Pin') + '</button>';
+    return '<div class="notif-actions">' + pinAction + readAction + '</div>';
   }
 
-  function notifGroupTier(group) {
-    if (group.some(n => notifTier(n) === 'action')) return 'action';
-    if (group.some(n => notifTier(n) === 'fyi')) return 'fyi';
-    return 'ambient';
-  }
+  function renderPRThread(prGroup) {
+    const primary = prGroup[0];
+    const allIds = prGroup.map(n => n.id).join(',');
+    const isRead = prGroup.every(n => n.readAt);
+    const readClass = isRead ? 'is-read' : '';
+    const isPinned = prGroup.some(n => n.pinnedAt);
+    const prUrl = primary.prUrl || '#';
+    const prId = escapeHtml(primary.prId || '');
+    const prTitle = escapeHtml(primary.prTitle || '');
+    // Repo from prId: "owner/repo#123" -> repo#123
+    const repoLabel = prId.includes('/') ? prId.split('/').pop() : prId;
 
-  function notifTypeClass(type) {
-    switch (type) {
-      case 'reply_to_my_comment': return 'notif-type-reply';
-      case 'review_changes_requested': return 'notif-type-changes';
-      case 'review_approved': return 'notif-type-approved';
-      case 'mentioned': return 'notif-type-mentioned';
-      case 'assigned': return 'notif-type-assigned';
-      default: return '';
-    }
-  }
+    // Latest non-bot event for the summary line
+    const latestHuman = prGroup.find(n => !n.isBot) || primary;
+    const actorHtml = escapeHtml(latestHuman.actor || 'someone');
+    const tag = actionTagHtml(latestHuman.type);
+    const snippet = latestHuman.preview ? '<span class="snippet">' + escapeHtml(latestHuman.preview) + '</span>' : '';
+    const moreCount = prGroup.length > 1 ? '<span class="more-count">+' + (prGroup.length - 1) + '</span>' : '';
 
-  function renderNotifGroup(group) {
-    const primary = group[0];
-    const allBots = group.every(n => n.isBot);
-    const isRead = group.every(n => n.readAt);
-    const readClass = isRead ? 'read' : '';
-    const ids = group.map(n => n.id).join(',');
-    const icon = allBots ? '<div class="notif-icon notif-icon--default">🤖</div>' : notifIcon(primary.type);
-    const iconPriority = ['direct_request', 'review_changes_requested', 'review_approved', 'reply_to_my_comment', 'new_review', 'comment_on_my_pr', 'comment_on_watched_pr', 'mentioned', 'team_mentioned', 'assigned', 'pr_closed'];
-    const primaryType = group.map(n => n.type).sort((a, b) => iconPriority.indexOf(a) - iconPriority.indexOf(b))[0] || primary.type;
-    const tier = notifGroupTier(group);
-    const tierClass = `notif-${tier}`;
-    const typeClass = tier === 'action' ? notifTypeClass(primaryType) : '';
-
-    if (group.length === 1) {
-      return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
-        <div class="notif-unread-dot"></div>
-        ${icon}
-        <div class="notif-body">
-          <div>${notifLabel(primary)}</div>
-          <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
-          <div class="notif-preview">${escapeHtml(primary.preview || '')}</div>
-        </div>
-        ${notifActionButtons(readClass, ids)}
-        <div class="notif-time">${relativeTime(primary.createdAt)}</div>
-        <span class="notif-chevron" aria-hidden="true">›</span>
-      </div>`;
+    // Timeline: group by author
+    const authorGroups = groupByAuthor(prGroup);
+    let timelineHtml = '';
+    for (const ag of authorGroups) {
+      const agActor = escapeHtml(ag.actor || 'someone');
+      const agBotLabel = ag.isBot ? ' <span class="bot-label">Bot</span>' : '';
+      const agTag = ag.events.length > 0 ? actionTagHtml(ag.events[0].type) : '';
+      const agTime = ag.events.length > 0 ? relativeTime(ag.events[0].createdAt) : '';
+      let commentsHtml = '';
+      for (const ev of ag.events) {
+        if (ev.preview) {
+          const commentUrl = ev.prUrl || '#';
+          commentsHtml += '<div class="tl-comment"><a href="' + escapeHtml(commentUrl) + '" target="_blank">' + escapeHtml(ev.preview) + '</a></div>';
+        }
+      }
+      timelineHtml += '<div class="tl-author-group"><div class="tl-author-header"><span class="tl-actor">' + agActor + '</span>' + agBotLabel + ' ' + agTag + '<span class="tl-time" style="margin-left:auto">' + agTime + '</span></div>' + commentsHtml + '</div>';
     }
 
-    // Multiple items: combine verbs
-    if (allBots) {
-      const commentCount = group.filter(n => ['comment_on_my_pr', 'reply_to_my_comment'].includes(n.type)).length;
-      const reviewCount = group.filter(n => ['review_approved', 'review_changes_requested', 'new_review'].includes(n.type)).length;
-      const summary = [];
-      if (commentCount) summary.push(`${commentCount} comment${commentCount === 1 ? '' : 's'}`);
-      if (reviewCount) summary.push(`${reviewCount} review${reviewCount === 1 ? '' : 's'}`);
-      const label = summary.length ? `🤖 bot activity · ${summary.join(', ')}` : '🤖 bot activity';
-      return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
-        <div class="notif-unread-dot"></div>
-        ${icon}
-        <div class="notif-body">
-          <div>${label}</div>
-          <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
-        </div>
-        ${notifActionButtons(readClass, ids)}
-        <div class="notif-time">${relativeTime(primary.createdAt)}</div>
-        <span class="notif-chevron" aria-hidden="true">›</span>
-      </div>`;
-    }
-
-    const actor = escapeHtml(primary.actor || 'someone');
-    const botTag = primary.isBot ? '<span class="notif-bot-label">Bot</span>' : '';
-    const verbs = [...new Set(group.map(n => actionVerb(n.type)))];
-    const verbText = verbs.join(' and ');
-
-    return `<div class="notif-item ${readClass} ${tierClass} ${typeClass}" data-notif-id="${escapeHtml(ids)}" tabindex="0">
-      <div class="notif-unread-dot"></div>
-      ${notifIcon(primaryType)}
-      <div class="notif-body">
-        <div><span class="notif-actor">${actor}</span>${botTag} ${verbText}</div>
-        <div class="notif-pr">${escapeHtml(primary.prTitle || '')} · ${escapeHtml(primary.prId || '')}</div>
-        <div class="notif-preview">${escapeHtml(primary.preview || '')}</div>
-      </div>
-      ${notifActionButtons(readClass, ids)}
-      <div class="notif-time">${relativeTime(primary.createdAt)}</div>
-      <span class="notif-chevron" aria-hidden="true">›</span>
-    </div>`;
+    return '<div class="pr-thread ' + readClass + '" data-notif-id="' + escapeHtml(allIds) + '">' +
+      '<div class="pr-row">' +
+        '<div class="pr-body">' +
+          '<div class="pr-line1"><span class="pr-title">' + prTitle + '</span></div>' +
+          '<div class="pr-latest">' +
+            '<span class="pr-repo-link"><a href="' + escapeHtml(prUrl) + '" target="_blank">' + escapeHtml(repoLabel) + '</a></span>' +
+            '<span class="sep">·</span>' +
+            '<span class="th-actor">' + actorHtml + '</span> ' +
+            tag + ' ' + snippet + ' ' + moreCount +
+          '</div>' +
+        '</div>' +
+        notifActionButtons(isRead ? 'read' : '', allIds, isPinned) +
+        '<div class="pr-meta"><span class="notif-time">' + relativeTime(primary.createdAt) + '</span></div>' +
+      '</div>' +
+      '<div class="pr-timeline">' + timelineHtml + '</div>' +
+    '</div>';
   }
 
-  function renderNotifications() {
-    const all = loadNotifications();
-    const unreadCount = all.filter(n => !n.readAt && !n.isBot).length;
-    notifBadgeEl.textContent = unreadCount > 0 ? String(unreadCount) : '';
+  function renderNotifSection(label, prGroups) {
+    if (prGroups.length === 0) return '';
+    return '<div class="notif-section" id="notif-' + label.toLowerCase().replace(/\s+/g, '-') + '">' +
+      '<h2>' + escapeHtml(label) + ' <span class="collapse-btn"></span></h2>' +
+      '<div class="notif-cards">' + prGroups.map(renderPRThread).join('') + '</div></div>';
+  }
 
-    // Disable mark-all when nothing unread
+function renderNotifications() {
+  const all = loadNotifications();
+  const allByPR = groupNotificationsByPR(all);
+  const unreadCount = all.filter(n => !n.readAt && !n.isBot).length;
+  notifBadgeEl.textContent = unreadCount > 0 ? String(unreadCount) : '';
+
     const markAllBtn = $('notif-mark-all');
-    markAllBtn.disabled = unreadCount === 0;
+    const totalUnread = all.filter(n => !n.readAt).length;
+    markAllBtn.disabled = totalUnread === 0;
 
-    // Read lifecycle: unread → read (< 4h) → old (4h–2d) → pruned
     const OLD_THRESHOLD_MS = 4 * 60 * 60 * 1000;
     const now = Date.now();
     function isOld(n) { return n.readAt && (now - n.readAt) > OLD_THRESHOLD_MS; }
 
-    const allGrouped = groupNotifications(all);
-    let visible;
-    if (currentNotifFilter === 'needs-you') visible = allGrouped.filter(g => g.some(n => notifTier(n) === 'action' && !n.readAt));
-    else if (currentNotifFilter === 'all') visible = allGrouped.filter(g => !g.every(n => isOld(n)));
-    else if (currentNotifFilter === 'old') visible = allGrouped.filter(g => g.every(n => !!n.readAt) && g.every(n => isOld(n)));
-    else visible = allGrouped;
+    // Filter PR groups by read state
+    let visibleGroups;
+    if (currentNotifFilter === 'unread') {
+      visibleGroups = allByPR.filter(g => g.some(n => !n.readAt));
+    } else if (currentNotifFilter === 'read') {
+      visibleGroups = allByPR.filter(g => g.every(n => !!n.readAt) && g.some(n => !isOld(n)));
+    } else if (currentNotifFilter === 'old') {
+      visibleGroups = allByPR.filter(g => g.every(n => !!n.readAt) && g.every(n => isOld(n)));
+    } else {
+      visibleGroups = allByPR;
+    }
 
-    if (visible.length === 0) {
-      const msg = currentNotifFilter === 'needs-you'
-        ? 'Nothing needs your attention.'
+    if (visibleGroups.length === 0) {
+      const msg = currentNotifFilter === 'unread'
+        ? "You're all caught up.<br><span style=\"font-size:12px\">New PR activity will appear here.</span>"
         : currentNotifFilter === 'old'
           ? 'No old notifications.'
-          : 'No notifications.';
-      notifListEl.innerHTML = `<div class="notif-empty">${msg}</div>`;
+          : 'No read notifications.';
+      notifListEl.innerHTML = '<div class="notif-empty">' + msg + '</div>';
       return;
     }
 
-    if (['needs-you', 'all'].includes(currentNotifFilter)) {
-      const needsYou = visible.filter(g => notifGroupTier(g) === 'action');
-      const activity = visible.filter(g => notifGroupTier(g) !== 'action');
-      const sections = [];
-      if (needsYou.length) {
-        sections.push(`<div class="notif-group"><div class="notif-group-label">Needs you · ${needsYou.length}</div>${needsYou.map(renderNotifGroup).join('')}</div>`);
-      }
-      if (activity.length) {
-        sections.push(`<div class="notif-group"><div class="notif-group-label">Activity · ${activity.length}</div>${activity.map(renderNotifGroup).join('')}</div>`);
-      }
-      notifListEl.innerHTML = sections.join('');
-      return;
-    }
+    // Split into three sections
+    const needsYou = visibleGroups.filter(g => g.some(n => notifSection(n) === 'needs-you'));
+    const teammates = visibleGroups.filter(g => !g.some(n => notifSection(n) === 'needs-you') && g.some(n => notifSection(n) === 'teammates'));
+    const activity = visibleGroups.filter(g => !g.some(n => notifSection(n) === 'needs-you') && !g.some(n => notifSection(n) === 'teammates'));
 
-    notifListEl.innerHTML = visible.map(renderNotifGroup).join('');
+    const sections = [];
+    if (needsYou.length) sections.push(renderNotifSection('Needs you', needsYou));
+    if (teammates.length) sections.push(renderNotifSection('Teammates', teammates));
+    if (activity.length) sections.push(renderNotifSection('Activity', activity));
+
+    notifListEl.innerHTML = sections.join('');
+
+    // Wire up section collapse toggles
+    notifListEl.querySelectorAll('.notif-section > h2').forEach(function(h2) {
+      h2.addEventListener('click', function() { h2.parentElement.classList.toggle('collapsed'); });
+    });
+
+    // Wire up PR thread expand/collapse
+    notifListEl.querySelectorAll('.pr-thread .pr-row').forEach(function(row) {
+      row.addEventListener('click', function(e) {
+        if (e.target.closest('a') || e.target.closest('.notif-action-btn')) return;
+        row.parentElement.classList.toggle('expanded');
+      });
+    });
   }
 
   function emitNotificationEvents(oldSnap, newSnap) {
@@ -3584,13 +3531,15 @@
         if (!targetIds.has(n.id)) continue;
         if (action === 'read') n.readAt = Date.now();
         else if (action === 'unread') n.readAt = null;
+        else if (action === 'pin') n.pinnedAt = Date.now();
+        else if (action === 'unpin') delete n.pinnedAt;
       }
       saveNotifications(items);
       renderNotifications();
       return;
     }
 
-    const item = event.target.closest('.notif-item');
+    const item = event.target.closest('.pr-thread');
     if (!item) return;
     const nid = item.dataset.notifId;
     const items = loadNotifications();
@@ -3649,7 +3598,7 @@
     renderCachedIfAny(); // instant paint from previous snapshot
     // Restore persisted view and filter state
     const savedFilter = localStorage.getItem(STORAGE_NOTIF_FILTER);
-    if (savedFilter && ['needs-you', 'all', 'old'].includes(savedFilter)) {
+    if (savedFilter && ['unread', 'read', 'old'].includes(savedFilter)) {
       currentNotifFilter = savedFilter;
       document.querySelectorAll('.notif-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.notifFilter === savedFilter));
     }
