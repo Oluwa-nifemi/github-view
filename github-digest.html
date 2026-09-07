@@ -3359,10 +3359,10 @@ function renderNotifications() {
         const oldReviewKeys = new Set((old?.reviews || []).map(r => `${r.user}:${r.submittedAt}`));
         for (const review of (pr.reviews || [])) {
           if (review.user === pr.author) continue;
-          if (review.state === 'COMMENTED') continue;
+          const isBot = review.user && (review.user === AGENT_BOT_LOGIN || review.user.endsWith('[bot]'));
+          if (review.state === 'COMMENTED' && !isBot) continue;
           const rKey = `${review.user}:${review.submittedAt}`;
           if (oldReviewKeys.has(rKey)) continue;
-          const isBot = review.user && (review.user === AGENT_BOT_LOGIN || review.user.endsWith('[bot]'));
           let type;
           if (review.state === 'APPROVED') type = 'review_approved';
           else if (review.state === 'CHANGES_REQUESTED') type = 'review_changes_requested';
