@@ -5,6 +5,8 @@ Read `github-digest.map.md` to locate the owning module before editing.
 
 ## Working Here
 
+- Use the module map and `rg` to locate code, then read targeted ranges. Do not load large files wholesale.
+- Update `github-digest.map.md` after structural changes so module ownership and data contracts stay accurate.
 - `npm ci`, then `npm run dev`. Production: `npm run build && npm start`.
 - Keep feature changes inside their owning modules. Do not rebuild a large shared controller or add a second UI framework.
 - UI components live in `src/ui`; API access in `src/github`; PR enrichment in `src/snapshot`; review/activity rules in `src/domain`.
