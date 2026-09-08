@@ -147,7 +147,6 @@ function Thread({ group, update }) {
           ${pinned ? "Unpin" : "Pin"}
         </button>
         ${
-          read &&
           html`<button
             class="notif-action-btn"
             data-notif-action=${read ? "unread" : "read"}

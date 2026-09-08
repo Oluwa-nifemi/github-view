@@ -406,7 +406,7 @@
   border-radius: 0 !important;
 }
 .notif-mark-all:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 .notif-mark-all:disabled {
   color: var(--muted);

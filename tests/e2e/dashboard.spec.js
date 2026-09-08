@@ -544,7 +544,7 @@ test("unread groups exclude read comments and opening a comment clears only that
   );
   await expect(
     page.getByRole("button", { name: "Mark read", exact: true }),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await page.getByRole("button", { name: "Expand activity" }).click();
   await expect(page.locator(".tl-comment")).toHaveCount(2);
   await page.route("https://github.com/**", (route) =>
@@ -571,6 +571,13 @@ test("unread groups exclude read comments and opening a comment clears only that
   await expect(page.locator(".pr-thread")).not.toContainText(
     "Unread second comment",
   );
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await page.locator(".pr-title").hover();
+  await expect(page.locator(".pr-title")).toHaveCSS("text-decoration-line", "none");
+  await page.getByRole("button", { name: "Mark read", exact: true }).click();
+  await expect(page.locator(".pr-thread")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".pr-thread")).toHaveCount(0);
 });
 
 test("recovers corrupt storage and stays within a mobile viewport", async ({
