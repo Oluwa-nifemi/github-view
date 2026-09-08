@@ -15,7 +15,7 @@
 | Snapshot stages        | `requested.js`, `agent.js`, `mine.js`, `handled.js`, `engaged.js`, `teammate-open.js` | Separate PR source rules; explicit build context                      |
 | Snapshot helpers       | `src/snapshot/model.js`, `ci.js`                                                      | PR data shape and CI classification                                   |
 | Domain rules           | `src/domain/reviews.js`, `activity.js`, `comments.js`, `text.js`                      | Review classification, badges, activity, normalized comments          |
-| Styling                | `src/styles/base.css`, `cards.css`, `app.css`                                         | Theme/layout, repeated cards, responsive controls                     |
+| Styling                | `src/styles/base.css`, `cards.css`, `app.css`, `notifications.css`, `integration.css` | Original styling plus semantic-control compatibility                 |
 | Local runtime          | `scripts/serve.mjs`, `startup.mjs`                                                    | Loopback server and macOS login service                               |
 | Migration              | `github-digest.html`, `scripts/export-legacy.js`                                      | Export settings from the old file origin                              |
 | Watcher                | `.gh-digest/watch.mjs`                                                                | Optional separate one-shot macOS notification check                   |
@@ -23,6 +23,8 @@
 ## Data Contracts
 
 Snapshot: `{version, scope, prs, mentions, timestamp}`. `prs` maps `owner/repo#number` to PR data. Section numbers remain compatible with old caches: 3=requested, 4=mine, 5=handled, 6=engaged, 7=teammates. Legacy 1/2 render as requested.
+
+On first load, `buildSnapshot` can emit a primary-PR preview with `partial: true` through its progress callback. This preview is displayed but never persisted as a complete snapshot. Notification discovery fetches one page of at most 100 items updated in the past six hours; the Old view uses retained local history.
 
 PR data includes identity/title/link, author/teammate membership, dates, reviews, comments, draft state, and section-specific CI/request/activity fields. Add normalized fields in the owning stage and increase snapshot version if existing cached entries would lack them.
 
