@@ -4,3 +4,8 @@
 !/.gh-digest/com.oluwanifemi.github-digest.plist
 local/
 .DS_Store
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.local

@@ -8,9 +8,9 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const statePath = resolve(process.env.GH_DIGEST_STATE || `${scriptDir}/state.json`);
 const org = process.env.GH_DIGEST_ORG || 'ardoq';
-const ghBinary = process.env.GH_BIN || '/opt/homebrew/bin/gh';
-const notifierBinary = process.env.TERMINAL_NOTIFIER_BIN || '/opt/homebrew/bin/terminal-notifier';
-const tokenPath = process.env.GH_DIGEST_TOKEN_FILE || '/Users/Oluwanifemi/.config/github-digest/token';
+const ghBinary = process.env.GH_BIN || 'gh';
+const notifierBinary = process.env.TERMINAL_NOTIFIER_BIN || 'terminal-notifier';
+const historyMs = 30 * 24 * 60 * 60 * 1000;
 
 function run(command, args) {
   return execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -20,9 +20,13 @@ function ghJson(args) {
   return JSON.parse(run(ghBinary, ['api', ...args]));
 }
 
+function ghList(path) {
+  return ghJson([path, '--paginate', '--slurp']).flat();
+}
+
 function loadToken() {
-  const token = readFileSync(tokenPath, 'utf8').trim();
-  if (!token) throw new Error(`Token file is empty: ${tokenPath}`);
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || run(ghBinary, ['auth', 'token']);
+  if (!token) throw new Error('Sign in with gh auth login before running the watcher.');
   return token;
 }
 
@@ -30,7 +34,7 @@ function loadState() {
   if (!existsSync(statePath)) return { seen: [] };
   try {
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    return { seen: Array.isArray(state.seen) ? state.seen : [] };
+    return { seen: Array.isArray(state.seen) ? state.seen : [], updatedAt: state.updatedAt };
   } catch {
     return { seen: [] };
   }
@@ -84,7 +88,7 @@ function directReviewRequests(login) {
 }
 
 function directNotifications() {
-  const notifications = ghJson(['notifications?participating=false&per_page=100']);
+  const notifications = ghList('notifications?participating=false&per_page=100');
   return notifications.flatMap(notification => {
     if (notification.subject?.type !== 'PullRequest') return [];
 
@@ -95,8 +99,7 @@ function directNotifications() {
 
     if (!event) return [];
     return [{
-      key: `notification:${notification.id}`,
-      legacyKeyPrefix: `notification:${notification.id}:`,
+      key: `notification:${notification.id}:${notification.updated_at}`,
       type: notification.reason,
       prId: notificationPrId(notification),
       title: event[0],
@@ -126,7 +129,7 @@ function reviewAndReplyEvents(login) {
     const [owner, repo] = pr.repository.nameWithOwner.split('/');
     const apiRoot = `repos/${owner}/${repo}/pulls/${pr.number}`;
 
-    for (const review of ghJson([`${apiRoot}/reviews?per_page=100`])) {
+    for (const review of ghList(`${apiRoot}/reviews?per_page=100`)) {
       if (review.user?.login === login || isBot(review.user?.login)) continue;
       if (review.state !== 'CHANGES_REQUESTED' || Date.parse(review.submitted_at) < cutoff) continue;
       events.push({
@@ -141,17 +144,17 @@ function reviewAndReplyEvents(login) {
     }
 
     const comments = [
-      ...ghJson([`${apiRoot}/comments?per_page=100`]),
-      ...ghJson([`repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`]),
+      ...ghList(`${apiRoot}/comments?per_page=100`),
+      ...ghList(`repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`),
     ];
     for (const comment of comments) {
       if (comment.user?.login === login || isBot(comment.user?.login)) continue;
       if (Date.parse(comment.created_at) < cutoff) continue;
       events.push({
         key: `comment:${pr.repository.nameWithOwner}:${pr.number}:${comment.id}`,
-        type: comment.in_reply_to_id ? 'reply' : 'comment',
+        type: isReplyToUser(comment, comments, login) ? 'reply' : 'comment',
         prId: `${pr.repository.nameWithOwner}#${pr.number}`,
-        title: comment.in_reply_to_id ? `${comment.user.login} replied to you` : `${comment.user.login} commented`,
+        title: isReplyToUser(comment, comments, login) ? `${comment.user.login} replied to you` : `${comment.user.login} commented`,
         message: `${pr.repository.nameWithOwner}#${pr.number}: ${pr.title}`,
         url: comment.html_url || pr.url,
         preview: preview(comment.body),
@@ -164,7 +167,11 @@ function reviewAndReplyEvents(login) {
 }
 
 function notify(events) {
-  const grouped = Map.groupBy(events, event => event.prId);
+  const grouped = new Map();
+  for (const event of events) {
+    if (!grouped.has(event.prId)) grouped.set(event.prId, []);
+    grouped.get(event.prId).push(event);
+  }
   for (const [prId, prEvents] of grouped) {
     const replies = prEvents.filter(event => event.type === 'reply');
     const comments = prEvents.filter(event => event.type === 'comment');
@@ -189,11 +196,24 @@ function notify(events) {
   }
 }
 
+export function isReplyToUser(comment, comments, login) {
+  return !!comment.in_reply_to_id && comments.some(parent =>
+    parent.id === comment.in_reply_to_id && parent.user?.login === login);
+}
+
+export function retainedHistory(state, now = Date.now()) {
+  return (state.seen || []).map(entry => typeof entry === 'string'
+    ? { key: entry, seenAt: Date.parse(state.updatedAt) || now }
+    : entry).filter(entry => typeof entry?.key === 'string'
+      && Number.isFinite(entry.seenAt) && now - entry.seenAt < historyMs).slice(-10000);
+}
+
 function main() {
   process.env.GH_TOKEN = loadToken();
   const login = run(ghBinary, ['api', 'user', '--jq', '.login']);
   const state = loadState();
-  const seen = new Set(state.seen);
+  const history = retainedHistory(state);
+  const seen = new Set(history.map(entry => entry.key));
   const events = [
     ...directReviewRequests(login),
     ...directNotifications(),
@@ -203,13 +223,15 @@ function main() {
 
   if (events.length > 0) notify(events);
 
-  const retainedKeys = [...seen, ...events.map(event => event.key)];
+  const retainedKeys = [...history, ...events.map(event => ({ key: event.key, seenAt: Date.now() }))].slice(-10000);
   saveState({ seen: retainedKeys, updatedAt: new Date().toISOString() });
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`GitHub Digest watcher failed: ${error.stderr?.trim() || error.message}`);
-  process.exitCode = 1;
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`GitHub Digest watcher failed: ${error.stderr?.trim() || error.message}`);
+    process.exitCode = 1;
+  }
 }
