@@ -1,4 +1,19 @@
 /* Preserve the original layout with semantic links and keyboard controls. */
+.pr-title {
+  color: inherit;
+  text-decoration: none;
+}
+.pr-title:hover {
+  text-decoration: underline;
+}
+.notif-expand {
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
 .card-content-link {
   display: block;
   color: inherit;

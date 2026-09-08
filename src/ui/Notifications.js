@@ -38,6 +38,8 @@ export function notificationGroups(items) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(item);
   }
+  for (const group of groups.values())
+    group.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return [...groups.values()].sort(
     (a, b) =>
       Math.max(...b.map((n) => Date.parse(n.createdAt))) -
@@ -81,8 +83,15 @@ function Thread({ group, update }) {
     pinned = group.some((n) => n.pinnedAt);
   const repoLabel = (primary.prId || "").split("/").pop();
   const latest = group.find((n) => !n.isBot) || primary;
+  const markOpened = (event, opened = group) => {
+    if (event.type === "auxclick" && event.button !== 1) return;
+    update(
+      opened.filter((n) => !n.readAt).map((n) => n.id),
+      { readAt: Date.now() },
+    );
+  };
   const toggle = (event) => {
-    if (event.target.closest("a, .notif-action-btn")) return;
+    if (event.target.closest("a, button")) return;
     setExpanded(!expanded);
   };
   return html`<div
@@ -92,10 +101,19 @@ function Thread({ group, update }) {
     <div class="pr-row" onClick=${toggle}>
       <div class="pr-body">
         <div class="pr-line1">
-          <span class="pr-title">${primary.prTitle || ""}</span
+          <a
+            class="pr-title"
+            href=${safeUrl(primary.prUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick=${markOpened}
+            onAuxClick=${markOpened}
+            >${primary.prTitle || ""}</a
           ><span class="pr-repo"
             ><a
               href=${safeUrl(primary.prUrl)}
+              onClick=${markOpened}
+              onAuxClick=${markOpened}
               target="_blank"
               rel="noopener noreferrer"
               >${repoLabel}</a
@@ -106,6 +124,8 @@ function Thread({ group, update }) {
           <span class="pr-repo-link"
             ><a
               href=${safeUrl(primary.prUrl)}
+              onClick=${markOpened}
+              onAuxClick=${markOpened}
               target="_blank"
               rel="noopener noreferrer"
               >${repoLabel}</a
@@ -126,16 +146,28 @@ function Thread({ group, update }) {
         >
           ${pinned ? "Unpin" : "Pin"}
         </button>
-        <button
-          class="notif-action-btn"
-          data-notif-action=${read ? "unread" : "read"}
-          data-notif-ids=${ids.join(",")}
-          onClick=${() => update(ids, { readAt: read ? null : Date.now() })}
-        >
-          ${read ? "Mark unread" : "Mark read"}
-        </button>
+        ${
+          read &&
+          html`<button
+            class="notif-action-btn"
+            data-notif-action=${read ? "unread" : "read"}
+            data-notif-ids=${ids.join(",")}
+            onClick=${() => update(ids, { readAt: read ? null : Date.now() })}
+          >
+            ${read ? "Mark unread" : "Mark read"}
+          </button>`
+        }
       </div>
       <div class="pr-meta">
+        <button
+          type="button"
+          class="notif-expand"
+          aria-label=${expanded ? "Collapse activity" : "Expand activity"}
+          aria-expanded=${expanded}
+          onClick=${() => setExpanded(!expanded)}
+        >
+          ${expanded ? "▾" : "▸"}
+        </button>
         <span class="notif-time">${relativeTime(primary.createdAt)}</span>
       </div>
     </div>
@@ -152,7 +184,7 @@ function Thread({ group, update }) {
                 >${relativeTime(author.events[0].createdAt)}</span
               >
             </div>
-            ${author.events.filter((event) => event.preview).map((event) => html`<div class="tl-comment"><a href=${safeUrl(event.commentUrl || event.prUrl)} target="_blank" rel="noopener noreferrer">${event.preview}</a></div>`)}
+            ${author.events.filter((event) => event.preview).map((event) => html`<div class="tl-comment"><a href=${safeUrl(event.commentUrl || event.prUrl)} target="_blank" rel="noopener noreferrer" onClick=${(click) => markOpened(click, [event])} onAuxClick=${(click) => markOpened(click, [event])}>${event.preview}</a></div>`)}
           </div>`,
       )}
     </div>
@@ -178,14 +210,16 @@ export function Notifications({ items, setItems, filter, setFilter }) {
       previous.map((n) => (ids.includes(n.id) ? { ...n, ...patch } : n)),
     );
   const isOld = (n) => n.readAt && Date.now() - n.readAt > 14400000;
-  const visible = notificationGroups(items).filter((group) =>
-    filter === "unread"
-      ? group.some((n) => !n.readAt)
-      : filter === "read"
-        ? group.every((n) => n.readAt) && group.some((n) => !isOld(n))
-        : filter === "old"
-          ? group.every((n) => n.readAt) && group.every(isOld)
-          : true,
+  const visible = notificationGroups(
+    items.filter((n) =>
+      filter === "unread"
+        ? !n.readAt
+        : filter === "read"
+          ? n.readAt && !isOld(n)
+          : filter === "old"
+            ? isOld(n)
+            : true,
+    ),
   );
   const sectionKeys = ["needs-you", "teammates", "activity"],
     labels = ["Needs you", "Teammates", "Activity"];

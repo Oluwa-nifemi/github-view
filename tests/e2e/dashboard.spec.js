@@ -458,16 +458,27 @@ test("notification read and pin states survive reload", async ({
     ["mobile", 390, 844],
   ]) {
     await page.setViewportSize({ width, height });
-    await page.locator(".pr-row").click();
+    await page
+      .getByRole("button", { name: "Expand activity", exact: true })
+      .click();
     await page.screenshot({
       path: testInfo.outputPath(`${name}-notifications.png`),
       fullPage: true,
     });
-    await page.locator(".pr-row").click();
+    await page
+      .getByRole("button", { name: "Collapse activity", exact: true })
+      .click();
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "Pin", exact: true }).click();
-  await page.getByRole("button", { name: "Mark read", exact: true }).click();
+  await page.route("https://github.com/**", (route) =>
+    route.fulfill({ body: "Fixture GitHub" }),
+  );
+  const popupPromise = page.waitForEvent("popup");
+  await page
+    .getByRole("link", { name: "Synthetic mention", exact: true })
+    .click();
+  await (await popupPromise).close();
   await expect(page.locator(".pr-thread")).toHaveCount(0);
   await page.getByRole("button", { name: "Read", exact: true }).click();
   await expect(page.locator(".pr-thread")).toContainText("Synthetic mention");
@@ -478,6 +489,88 @@ test("notification read and pin states survive reload", async ({
   await page.getByRole("button", { name: "Mark unread", exact: true }).click();
   await page.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(page.locator(".pr-thread")).toBeVisible();
+});
+
+test("unread groups exclude read comments and opening a comment clears only that event", async ({
+  page,
+}) => {
+  await mockGitHub(page);
+  await ready(page);
+  await page.evaluate(() => {
+    const base = {
+      type: "mentioned",
+      actor: "team-user",
+      prId: "ardoq/example#1",
+      prTitle: "Grouped activity",
+      prUrl: "https://github.com/ardoq/example/pull/1",
+    };
+    localStorage.setItem(
+      "gh_digest_notifications",
+      JSON.stringify([
+        {
+          ...base,
+          id: "old",
+          key: "old",
+          preview: "Already read comment",
+          createdAt: new Date(Date.now() - 3000).toISOString(),
+          readAt: Date.now(),
+        },
+        {
+          ...base,
+          id: "first",
+          key: "first",
+          preview: "Unread first comment",
+          commentUrl: base.prUrl + "#first",
+          createdAt: new Date(Date.now() - 2000).toISOString(),
+        },
+        {
+          ...base,
+          id: "second",
+          key: "second",
+          preview: "Unread second comment",
+          commentUrl: base.prUrl + "#second",
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    );
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(page.locator(".pr-thread")).not.toContainText(
+    "Already read comment",
+  );
+  await expect(page.locator(".pr-latest")).toContainText(
+    "Unread second comment",
+  );
+  await expect(
+    page.getByRole("button", { name: "Mark read", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Expand activity" }).click();
+  await expect(page.locator(".tl-comment")).toHaveCount(2);
+  await page.route("https://github.com/**", (route) =>
+    route.fulfill({ body: "Fixture GitHub" }),
+  );
+  const popup = page.waitForEvent("popup");
+  await page
+    .getByRole("link", { name: "Unread first comment", exact: true })
+    .click();
+  await (await popup).close();
+  await expect(page.locator(".pr-thread")).not.toContainText(
+    "Unread first comment",
+  );
+  await expect(page.locator(".pr-thread")).toContainText(
+    "Unread second comment",
+  );
+  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await expect(page.locator(".pr-thread")).toContainText(
+    "Already read comment",
+  );
+  await expect(page.locator(".pr-thread")).toContainText(
+    "Unread first comment",
+  );
+  await expect(page.locator(".pr-thread")).not.toContainText(
+    "Unread second comment",
+  );
 });
 
 test("recovers corrupt storage and stays within a mobile viewport", async ({
