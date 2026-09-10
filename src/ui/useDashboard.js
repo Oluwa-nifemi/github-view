@@ -10,7 +10,10 @@ import { buildSnapshot } from "../snapshot/build.js";
 import { ghJson } from "../github/client.js";
 import { session } from "../config.js";
 import { diff } from "../domain/activity.js";
-import { collectNotificationEvents } from "../notifications/events.js";
+import {
+  collectNotificationEvents,
+  repairNotificationActors,
+} from "../notifications/events.js";
 export function useDashboard() {
   session.USERNAME ||= localStorage.getItem("gh_username") || "";
   const [token, setToken] = useState(
@@ -155,7 +158,12 @@ export function useDashboard() {
         setPreviousTimestamp(previous?.timestamp || null);
         const events =
           collectNotificationEvents(previous, fresh, session.USERNAME) || [];
-        setNotifications((items) => retainNotifications([...events, ...items]));
+        setNotifications((items) =>
+          retainNotifications([
+            ...events,
+            ...repairNotificationActors(items, fresh.mentions || []),
+          ]),
+        );
         setBadges(previous ? diff(previous, fresh) : {});
         setArchived((entries) =>
           Object.fromEntries(

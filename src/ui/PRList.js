@@ -15,6 +15,23 @@ const sections = [
   ["deleted", "deleted", "🗑️", "Deleted"],
 ];
 const latestFirst = (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt);
+const sameLogin = (left, right) =>
+  !!left && !!right && left.toLowerCase() === right.toLowerCase();
+
+export function bucketForPR(pr, state) {
+  if (state.archived[pr.id]?.deleted) return "deleted";
+  if (state.archived[pr.id]) return "archived";
+  if (state.promoted.includes(pr.id)) return "priority";
+  if (sameLogin(pr.author, session.USERNAME)) return "mine";
+  if ([1, 2, 3].includes(pr.section))
+    return !pr.needsAttention && isHandledByReview(pr)
+      ? "handled"
+      : session.teammates.has(pr.author) || pr.authorIsTeammate
+        ? "priority"
+        : "others";
+  return { 4: "mine", 5: "handled", 6: "engaged", 7: "teammates" }[pr.section];
+}
+
 export function PRList({
   prs,
   state,
@@ -42,21 +59,7 @@ export function PRList({
       !state.authors.includes(pr.author)
     )
       continue;
-    let key;
-    if (state.archived[pr.id]?.deleted) key = "deleted";
-    else if (state.archived[pr.id]) key = "archived";
-    else if (state.promoted.includes(pr.id)) key = "priority";
-    else if ([1, 2, 3].includes(pr.section))
-      key =
-        !pr.needsAttention && isHandledByReview(pr)
-          ? "handled"
-          : session.teammates.has(pr.author) || pr.authorIsTeammate
-            ? "priority"
-            : "others";
-    else
-      key = { 4: "mine", 5: "handled", 6: "engaged", 7: "teammates" }[
-        pr.section
-      ];
+    const key = bucketForPR(pr, state);
     if (key) buckets[key].push(pr);
   }
   const pinnedFirst = (a, b) =>

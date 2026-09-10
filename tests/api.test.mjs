@@ -39,6 +39,56 @@ test("notifications fetch only one page of at most 100 within six hours", async 
   assert.equal(result.notifications.length, 98);
 });
 
+test("notification actors are resolved from comments, PRs, and timeline events", async (t) => {
+  const now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const path = new URL(url).pathname;
+    if (path === "/notifications")
+      return response([
+        {
+          id: "mention",
+          reason: "mention",
+          updated_at: new Date(now).toISOString(),
+          subject: {
+            type: "PullRequest",
+            url: "https://api.github.com/repos/ardoq/repo/pulls/1",
+          },
+        },
+        {
+          id: "assign",
+          reason: "assign",
+          updated_at: new Date(now).toISOString(),
+          subject: {
+            type: "PullRequest",
+            url: "https://api.github.com/repos/ardoq/repo/pulls/2",
+          },
+        },
+      ]);
+    if (path === "/repos/ardoq/repo/pulls/1")
+      return response({ user: { login: "pr-author" } });
+    if (path === "/repos/ardoq/repo/issues/2/timeline")
+      return response([
+        {
+          event: "assigned",
+          actor: { login: "assigner" },
+          created_at: new Date(now - 1000).toISOString(),
+        },
+      ]);
+    throw new Error(`Unexpected request: ${path}`);
+  });
+
+  const result = await fetchRecentNotifications("notification-fixture");
+
+  assert.deepEqual(
+    result.extraNotifs.map(({ id, actor }) => ({ id, actor })),
+    [
+      { id: "mention", actor: "pr-author" },
+      { id: "assign", actor: "assigner" },
+    ],
+  );
+});
+
 test("API URL rejects external and credential-bearing URLs before fetch", () => {
   assert.equal(apiURL("/user"), "https://api.github.com/user");
   for (const url of [

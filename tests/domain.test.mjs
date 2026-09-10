@@ -10,8 +10,16 @@ const { session } = await import("../src/config.js");
 const { classifyMyPR, latestNonCommentReviewsByReviewer, isHandledByReview } =
   await import("../src/domain/reviews.js");
 const { ciFailing } = await import("../src/snapshot/ci.js");
-const { collectNotificationEvents } =
+const { collectNotificationEvents, repairNotificationActors } =
   await import("../src/notifications/events.js");
+const {
+  notificationActorGroups,
+  notificationSection,
+  notificationGroups,
+  unreadThreadCount,
+} = await import("../src/ui/Notifications.js");
+const { diff, hasActionableActivitySince } =
+  await import("../src/domain/activity.js");
 session.USERNAME = "me";
 const at = "2026-09-07T10:00:00Z";
 const later = "2026-09-07T11:00:00Z";
@@ -19,6 +27,80 @@ const review = (state, submittedAt = at, user = "reviewer") => ({
   user,
   state,
   submittedAt,
+});
+
+test("an existing PR is not new only because its section changed", () => {
+  const oldSnap = {
+    prs: {
+      "ardoq/example#1": {
+        author: "me",
+        section: 3,
+        updatedAt: at,
+        reviews: [],
+        comments: [],
+      },
+    },
+  };
+  const moved = {
+    prs: {
+      "ardoq/example#1": {
+        ...oldSnap.prs["ardoq/example#1"],
+        section: 4,
+      },
+    },
+  };
+  const changed = {
+    prs: {
+      "ardoq/example#1": {
+        ...moved.prs["ardoq/example#1"],
+        updatedAt: later,
+      },
+    },
+  };
+
+  assert.deepEqual(diff(oldSnap, moved), {});
+  assert.deepEqual(diff(oldSnap, changed), {
+    "ardoq/example#1": "UPDATED",
+  });
+});
+
+test("comments after approval do not require attention, but reviews and commits do", () => {
+  const comments = [{ user: "author", createdAt: later }];
+  const commentOnlyReview = {
+    user: { login: "author" },
+    state: "COMMENTED",
+    submitted_at: later,
+  };
+  assert.equal(
+    hasActionableActivitySince(
+      at,
+      "APPROVED",
+      [commentOnlyReview],
+      comments,
+      [],
+    ),
+    false,
+  );
+  assert.equal(
+    hasActionableActivitySince(
+      at,
+      "APPROVED",
+      [{ ...commentOnlyReview, state: "CHANGES_REQUESTED" }],
+      comments,
+      [],
+    ),
+    true,
+  );
+  assert.equal(
+    hasActionableActivitySince(at, "APPROVED", [], comments, [
+      {
+        author: { login: "author" },
+        commit: { committer: { date: later } },
+      },
+    ]),
+    true,
+  );
+  assert.equal(hasActionableActivitySince(at, null, [], comments, []), true);
 });
 
 test("direct requests and outstanding changes stay actionable despite another approval", () => {
@@ -126,6 +208,114 @@ test("notification baseline emits nothing and default username is usable", () =>
   assert.deepEqual(collectNotificationEvents(null, { prs: {} }), []);
 });
 
+test("notification badge excludes activity threads", () => {
+  session.teammates = new Set(["team-user"]);
+  const base = {
+    createdAt: later,
+    prAuthor: "outside-author",
+    readAt: null,
+  };
+  assert.equal(
+    unreadThreadCount([
+      { ...base, id: "needs", prId: "org/repo#1", type: "mentioned" },
+      {
+        ...base,
+        id: "team",
+        prId: "org/repo#2",
+        actor: "team-user",
+        prAuthor: "team-user",
+      },
+      {
+        ...base,
+        id: "activity",
+        prId: "org/repo#3",
+        actor: "outside-user",
+      },
+    ]),
+    2,
+  );
+});
+
+test("notification grouping can split mixed PR activity by section", () => {
+  const mixed = [
+    {
+      id: "needs",
+      prId: "org/repo#1",
+      type: "mentioned",
+      createdAt: later,
+    },
+    {
+      id: "activity",
+      prId: "org/repo#1",
+      type: "comment_on_watched_pr",
+      actor: "outside-user",
+      createdAt: at,
+    },
+  ];
+
+  assert.deepEqual(
+    notificationGroups(
+      mixed.filter((item) => notificationSection(item) === "needs-you"),
+    )
+      .flat()
+      .map((item) => item.id),
+    ["needs"],
+  );
+  assert.deepEqual(
+    notificationGroups(
+      mixed.filter((item) => notificationSection(item) === "activity"),
+    )
+      .flat()
+      .map((item) => item.id),
+    ["activity"],
+  );
+});
+
+test("notification actor groups combine repeated comments without losing text", () => {
+  const groups = notificationActorGroups([
+    {
+      id: "new-comment",
+      actor: "reviewer",
+      type: "comment_on_watched_pr",
+      preview: "Newest comment",
+      createdAt: later,
+    },
+    {
+      id: "other-comment",
+      actor: "other-reviewer",
+      type: "comment_on_watched_pr",
+      preview: "Other comment",
+      createdAt: later,
+    },
+    {
+      id: "old-comment",
+      actor: "reviewer",
+      type: "comment_on_watched_pr",
+      preview: "Older comment",
+      createdAt: at,
+    },
+  ]);
+
+  assert.equal(groups.length, 2);
+  assert.deepEqual(
+    groups
+      .find((group) => group.actor === "reviewer")
+      .events.map((event) => event.preview),
+    ["Newest comment", "Older comment"],
+  );
+});
+
+test("bot comments on my PR need my attention", () => {
+  assert.equal(
+    notificationSection({
+      isBot: true,
+      onMyPR: true,
+      type: "comment_on_my_pr",
+    }),
+    "needs-you",
+  );
+});
+
 test("notifications retain bots on own PRs and exclude bots on watched PRs", () => {
   const comments = [
     { user: "helper[bot]", createdAt: later },
@@ -178,4 +368,26 @@ test("a later mention in the same notification thread is new activity", () => {
   );
   assert.equal(events.length, 1);
   assert.equal(events[0].createdAt, later);
+});
+
+test("refresh repairs missing actors on saved GitHub notifications", () => {
+  const saved = {
+    key: `assigned:org/repo#1:thread-1:${later}`,
+    actor: null,
+    readAt: 123,
+  };
+  const repaired = repairNotificationActors(
+    [saved],
+    [
+      {
+        id: "thread-1",
+        prId: "org/repo#1",
+        reason: "assign",
+        updatedAt: later,
+        actor: "assigner",
+      },
+    ],
+  );
+
+  assert.deepEqual(repaired, [{ ...saved, actor: "assigner" }]);
 });

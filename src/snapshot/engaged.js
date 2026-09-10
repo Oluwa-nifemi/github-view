@@ -8,6 +8,7 @@ import { normalizeReviews } from "../domain/reviews.js";
 import {
   latestActivityAt,
   hasExternalActivitySince,
+  hasActionableActivitySince,
 } from "../domain/activity.js";
 
 export async function enrichEngaged({ cachedPRs, prs, token }) {
@@ -94,10 +95,13 @@ export async function enrichEngaged({ cachedPRs, prs, token }) {
         comments,
         commits,
       );
-      const needsAttention =
-        latestUserReview?.state !== "APPROVED" &&
-        !!lastUserActivityAt &&
-        externalActivityAfterUser;
+      const needsAttention = hasActionableActivitySince(
+        lastUserActivityAt,
+        latestUserReview?.state,
+        reviews,
+        comments,
+        commits,
+      );
       const section = needsAttention ? 3 : 6;
 
       prs[prId] = {

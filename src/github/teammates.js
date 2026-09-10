@@ -1,5 +1,5 @@
 import { allRequests } from "./concurrent.js";
-import { config } from "../config.js";
+import { config, session } from "../config.js";
 import { readJSON, writeJSON } from "../storage.js";
 import { ghJson } from "./client.js";
 
@@ -32,7 +32,9 @@ export async function getTeammates(token) {
     });
   }
   const excluded = new Set(
-    config.EXCLUDED_TEAMMATES.map((login) => login.toLowerCase()),
+    [...config.EXCLUDED_TEAMMATES, session.USERNAME].map((login) =>
+      login.toLowerCase(),
+    ),
   );
   return new Set(
     [...members, ...config.EXTRA_TEAMMATES].filter(

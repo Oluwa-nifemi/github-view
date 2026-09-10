@@ -2,14 +2,19 @@ import { useState } from "preact/hooks";
 import { html, safeUrl, relativeTime } from "./common.js";
 import { session, config } from "../config.js";
 
-export function notificationSection(n) {
-  if (n.isBot) return "activity";
+export function notificationSection(notification) {
+  if (
+    notification.onMyPR &&
+    ["review_approved", "comment_on_my_pr"].includes(notification.type)
+  )
+    return "needs-you";
+  if (notification.isBot) return "activity";
   const username = session.USERNAME.trim();
   if (username) {
     const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (
       new RegExp(`(^|[^a-z0-9-])@${escaped}(?![a-z0-9-])`, "i").test(
-        n.preview || "",
+        notification.preview || "",
       )
     )
       return "needs-you";
@@ -20,12 +25,11 @@ export function notificationSection(n) {
       "review_changes_requested",
       "mentioned",
       "assigned",
-    ].includes(n.type)
+    ].includes(notification.type)
   )
     return "needs-you";
-  if (n.onMyPR && ["review_approved", "comment_on_my_pr"].includes(n.type))
-    return "needs-you";
-  return session.teammates.has(n.actor) && session.teammates.has(n.prAuthor)
+  return session.teammates.has(notification.actor) &&
+    session.teammates.has(notification.prAuthor)
     ? "teammates"
     : "activity";
 }
@@ -42,13 +46,37 @@ export function notificationGroups(items) {
     group.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return [...groups.values()].sort(
     (a, b) =>
-      Math.max(...b.map((n) => Date.parse(n.createdAt))) -
-      Math.max(...a.map((n) => Date.parse(n.createdAt))),
+      Math.max(...b.map((item) => Date.parse(item.createdAt))) -
+      Math.max(...a.map((item) => Date.parse(item.createdAt))),
   );
 }
+
+export function notificationActorGroups(events) {
+  const groups = new Map();
+  for (const event of events) {
+    const actor = event.actor || event.prAuthor || "GitHub";
+    const key = `${actor}:${event.isBot ? "bot" : "person"}`;
+    if (!groups.has(key))
+      groups.set(key, {
+        actor,
+        isBot: event.isBot,
+        latestAt: event.createdAt,
+        events: [],
+      });
+    groups.get(key).events.push(event);
+  }
+  return [...groups.values()].sort(
+    (a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt),
+  );
+}
+
 export const unreadThreadCount = (items) =>
   notificationGroups(items).filter((group) =>
-    group.some((n) => !n.readAt && !n.isBot),
+    group.some(
+      (notification) =>
+        !notification.readAt &&
+        notificationSection(notification) !== "activity",
+    ),
   ).length;
 
 function ActionTag({ type }) {
@@ -56,200 +84,358 @@ function ActionTag({ type }) {
     review_approved: ["approved", "approved"],
     review_changes_requested: ["changes", "changes requested"],
     reply_to_my_comment: ["replied", "replied"],
-    mentioned: ["mentioned", "mentioned"],
-    assigned: ["assigned", "assigned"],
+    comment_on_my_pr: ["commented", "commented"],
+    comment_on_watched_pr: ["commented", "commented"],
+    new_review: ["reviewed", "reviewed"],
+    mentioned: ["mentioned", "mentioned you"],
+    team_mentioned: ["mentioned", "mentioned your team"],
+    assigned: ["assigned", "assigned you"],
+    pr_closed: ["closed", "closed"],
   }[type];
   return tag
     ? html`<span class=${`notif-action-tag tag-${tag[0]}`}>${tag[1]}</span>`
     : null;
 }
-function groupByAuthor(events) {
-  const groups = new Map();
-  for (const event of events) {
-    const key = event.isBot
-      ? `bot:${event.actor || "bot"}`
-      : event.actor || "unknown";
-    if (!groups.has(key))
-      groups.set(key, { actor: event.actor, isBot: event.isBot, events: [] });
-    groups.get(key).events.push(event);
-  }
-  return [...groups.values()];
+
+function SelectionBox({ checked, indeterminate = false, label, onChange }) {
+  return html`<label class="notif-check">
+    <input
+      type="checkbox"
+      checked=${checked}
+      indeterminate=${indeterminate}
+      aria-label=${label}
+      onChange=${(event) => onChange(event.currentTarget.checked)}
+    />
+    <span aria-hidden="true"></span>
+  </label>`;
 }
-function Thread({ group, update }) {
-  const [expanded, setExpanded] = useState(false);
-  const primary = group[0],
-    ids = group.map((n) => n.id),
-    read = group.every((n) => n.readAt),
-    pinned = group.some((n) => n.pinnedAt);
-  const repoLabel = (primary.prId || "").split("/").pop();
-  const latest = group.find((n) => !n.isBot) || primary;
+
+function CommentList({ events, markOpened }) {
+  return html`<div class="notif-comments">
+    ${events.map(
+      (entry) =>
+        html`<a
+          class="notif-comment"
+          href=${safeUrl(entry.commentUrl || entry.prUrl)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick=${(event) => markOpened(event, [entry])}
+          onAuxClick=${(event) => markOpened(event, [entry])}
+        >
+          ${entry.preview || "Open notification"}
+        </a>`,
+    )}
+  </div>`;
+}
+
+function ActorGroup({ actorGroup, markOpened }) {
+  const types = [...new Set(actorGroup.events.map((event) => event.type))];
+  return html`<div class="notif-actor-group">
+    <div class="notif-actor-line">
+      <span class="notif-actor">${actorGroup.actor}</span>
+      ${actorGroup.isBot && html`<span class="bot-label">Bot</span>`}
+      ${types.slice(0, 2).map((type) => html`<${ActionTag} type=${type} />`)}
+      ${
+        actorGroup.events.length > 1 &&
+        html`<span class="notif-actor-count"
+          >${actorGroup.events.length} updates</span
+        >`
+      }
+      <time class="notif-time">${relativeTime(actorGroup.latestAt)}</time>
+    </div>
+    <${CommentList} events=${actorGroup.events} markOpened=${markOpened} />
+  </div>`;
+}
+
+function Thread({ group, update, selecting, selected, setSelected }) {
+  const primary = group[0];
+  const ids = group.map((notification) => notification.id);
+  const read = group.every((notification) => notification.readAt);
+  const pinned = group.some((notification) => notification.pinnedAt);
   const markOpened = (event, opened = group) => {
     if (event.type === "auxclick" && event.button !== 1) return;
     update(
-      opened.filter((n) => !n.readAt).map((n) => n.id),
+      opened
+        .filter((notification) => !notification.readAt)
+        .map((item) => item.id),
       { readAt: Date.now() },
     );
   };
-  const toggle = (event) => {
-    if (event.target.closest("a, button")) return;
-    setExpanded(!expanded);
-  };
-  return html`<div
-    class=${`pr-thread ${read ? "is-read" : ""} ${expanded ? "expanded" : ""}`}
+  return html`<article
+    class=${`pr-thread ${read ? "is-read" : ""} ${selected ? "is-selected" : ""}`}
     data-notif-id=${ids.join(",")}
   >
-    <div class="pr-row" onClick=${toggle}>
-      <div class="pr-body">
-        <div class="pr-line1">
-          <a
-            class="pr-title"
-            href=${safeUrl(primary.prUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick=${markOpened}
-            onAuxClick=${markOpened}
-            >${primary.prTitle || ""}</a
-          ><span class="pr-repo"
-            ><a
-              href=${safeUrl(primary.prUrl)}
-              onClick=${markOpened}
-              onAuxClick=${markOpened}
-              target="_blank"
-              rel="noopener noreferrer"
-              >${repoLabel}</a
-            ></span
-          >
-        </div>
-        <div class="pr-latest">
-          <span class="pr-repo-link"
-            ><a
-              href=${safeUrl(primary.prUrl)}
-              onClick=${markOpened}
-              onAuxClick=${markOpened}
-              target="_blank"
-              rel="noopener noreferrer"
-              >${repoLabel}</a
-            ></span
-          ><span class="sep">·</span
-          ><span class="th-actor">${latest.actor || "someone"}</span>
-          <${ActionTag} type=${latest.type} />
-          ${latest.preview && html`<span class="snippet">${latest.preview}</span>`}
-          ${group.length > 1 && html`<span class="more-count">+${group.length - 1}</span>`}
-        </div>
-      </div>
-      <div class="notif-actions">
+    <div class="notif-thread-topline">
+      ${
+        selecting &&
+        html`<${SelectionBox}
+          checked=${selected}
+          label=${`Select ${primary.prTitle || "notification group"}`}
+          onChange=${setSelected}
+        />`
+      }
+      <a
+        class="notif-pr-title"
+        href=${safeUrl(primary.prUrl)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick=${markOpened}
+        onAuxClick=${markOpened}
+        >${primary.prTitle || "Pull request"}</a
+      >
+      <div class="notif-thread-actions">
         <button
-          class=${`notif-action-btn ${pinned ? "is-pinned" : ""}`}
-          data-notif-action=${pinned ? "unpin" : "pin"}
-          data-notif-ids=${ids.join(",")}
+          class=${`notif-icon-action ${pinned ? "is-pinned" : ""}`}
+          aria-label=${`${pinned ? "Unpin" : "Pin"} ${primary.prTitle || "notification group"}`}
+          title=${pinned ? "Unpin" : "Pin"}
           onClick=${() => update(ids, { pinnedAt: pinned ? null : Date.now() })}
         >
-          ${pinned ? "Unpin" : "Pin"}
+          ${pinned ? "Pinned" : "Pin"}
         </button>
-        ${
-          html`<button
-            class="notif-action-btn"
-            data-notif-action=${read ? "unread" : "read"}
-            data-notif-ids=${ids.join(",")}
-            onClick=${() => update(ids, { readAt: read ? null : Date.now() })}
-          >
-            ${read ? "Mark unread" : "Mark read"}
-          </button>`
-        }
-      </div>
-      <div class="pr-meta">
         <button
-          type="button"
-          class="notif-expand"
-          aria-label=${expanded ? "Collapse activity" : "Expand activity"}
-          aria-expanded=${expanded}
-          onClick=${() => setExpanded(!expanded)}
+          class="notif-icon-action"
+          aria-label=${`${read ? "Mark unread" : "Mark read"}: ${primary.prTitle || "notification group"}`}
+          onClick=${() => update(ids, { readAt: read ? null : Date.now() })}
         >
-          ${expanded ? "▾" : "▸"}
+          ${read ? "Unread" : "Read"}
         </button>
-        <span class="notif-time">${relativeTime(primary.createdAt)}</span>
       </div>
     </div>
-    <div class="pr-timeline">
-      ${groupByAuthor(group).map(
-        (author) =>
-          html`<div class="tl-author-group">
-            <div class="tl-author-header">
-              <span class="tl-actor">${author.actor || "someone"}</span
-              >${author.isBot && html` <span class="bot-label">Bot</span>`}
-              <${ActionTag} type=${author.events[0].type} /><span
-                class="tl-time"
-                style=${{ marginLeft: "auto" }}
-                >${relativeTime(author.events[0].createdAt)}</span
-              >
-            </div>
-            ${author.events.filter((event) => event.preview).map((event) => html`<div class="tl-comment"><a href=${safeUrl(event.commentUrl || event.prUrl)} target="_blank" rel="noopener noreferrer" onClick=${(click) => markOpened(click, [event])} onAuxClick=${(click) => markOpened(click, [event])}>${event.preview}</a></div>`)}
-          </div>`,
+    <div class="notif-actor-groups">
+      ${notificationActorGroups(group).map(
+        (actorGroup) =>
+          html`<${ActorGroup}
+            key=${`${primary.prId || primary.id}:${actorGroup.actor}`}
+            actorGroup=${actorGroup}
+            markOpened=${markOpened}
+          />`,
       )}
     </div>
-  </div>`;
+  </article>`;
 }
-function Section({ label, groups, update }) {
+
+function Section({
+  sectionKey,
+  label,
+  groups,
+  update,
+  selecting,
+  selectedGroupKeys,
+  setGroupsSelected,
+}) {
   const [collapsed, setCollapsed] = useState(false);
-  return html`<div
+  const groupKeys = groups.map((group) => group[0].prId || group[0].id);
+  const selected = groupKeys.filter((key) => selectedGroupKeys.has(key)).length;
+  const unread = groups.filter((group) =>
+    group.some((notification) => !notification.readAt),
+  ).length;
+  const ids = groups.flatMap((group) => group.map((item) => item.id));
+  return html`<section
     class=${`notif-section ${collapsed ? "collapsed" : ""}`}
-    id=${`notif-${label.toLowerCase().replace(/\s+/g, "-")}`}
+    id=${`notif-${sectionKey}`}
   >
-    <h2 onClick=${() => setCollapsed(!collapsed)}>
-      ${label} <span class="collapse-btn"></span>
-    </h2>
-    <div class="notif-cards">
-      ${groups.map((group) => html`<${Thread} key=${group[0].prId || group[0].id} group=${group} update=${update} />`)}
+    <header class="notif-section-header">
+      ${
+        selecting &&
+        html`<${SelectionBox}
+          checked=${selected === groupKeys.length}
+          indeterminate=${selected > 0 && selected < groupKeys.length}
+          label=${`Select all ${label} groups`}
+          onChange=${(checked) => setGroupsSelected(groupKeys, checked)}
+        />`
+      }
+      <button
+        type="button"
+        class="notif-section-toggle"
+        aria-expanded=${!collapsed}
+        aria-controls=${`notif-${sectionKey}-items`}
+        onClick=${() => setCollapsed(!collapsed)}
+      >
+        <span aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+        <span class="notif-section-title">${label}</span>
+        <span class="notif-section-count">${groups.length}</span>
+        ${unread > 0 && html`<span class="notif-section-summary">${unread} unread</span>`}
+      </button>
+      ${
+        unread > 0 &&
+        html`<button
+          class="notif-section-read"
+          onClick=${() => update(ids, { readAt: Date.now() })}
+        >
+          Mark section read
+        </button>`
+      }
+    </header>
+    <div class="notif-cards" id=${`notif-${sectionKey}-items`}>
+      ${groups.map((group) => {
+        const key = group[0].prId || group[0].id;
+        return html`<${Thread}
+          key=${key}
+          group=${group}
+          update=${update}
+          selecting=${selecting}
+          selected=${selectedGroupKeys.has(key)}
+          setSelected=${(checked) => setGroupsSelected([key], checked)}
+        />`;
+      })}
     </div>
-  </div>`;
+  </section>`;
 }
+
 export function Notifications({ items, setItems, filter, setFilter }) {
+  const [selecting, setSelecting] = useState(false);
+  const [selectedGroupKeys, setSelectedGroupKeys] = useState(new Set());
   const update = (ids, patch) =>
     setItems((previous) =>
-      previous.map((n) => (ids.includes(n.id) ? { ...n, ...patch } : n)),
+      previous.map((notification) =>
+        ids.includes(notification.id)
+          ? { ...notification, ...patch }
+          : notification,
+      ),
     );
-  const isOld = (n) => n.readAt && Date.now() - n.readAt > 14400000;
+  const setGroupsSelected = (keys, checked) =>
+    setSelectedGroupKeys((previous) => {
+      const next = new Set(previous);
+      for (const key of keys) checked ? next.add(key) : next.delete(key);
+      return next;
+    });
+  const changeFilter = (value) => {
+    setSelecting(false);
+    setSelectedGroupKeys(new Set());
+    setFilter(value);
+  };
+  const isOld = (notification) =>
+    notification.readAt && Date.now() - notification.readAt > 14400000;
   const visible = notificationGroups(
-    items.filter((n) =>
+    items.filter((notification) =>
       filter === "unread"
-        ? !n.readAt
+        ? !notification.readAt
         : filter === "read"
-          ? n.readAt && !isOld(n)
+          ? notification.readAt && !isOld(notification)
           : filter === "old"
-            ? isOld(n)
+            ? isOld(notification)
             : true,
     ),
   );
-  const sectionKeys = ["needs-you", "teammates", "activity"],
-    labels = ["Needs you", "Teammates", "Activity"];
+  const visibleNotifications = visible.flat();
+  const visibleGroupKeys = visible.map((group) => group[0].prId || group[0].id);
+  const selectedGroups = visible.filter((group) =>
+    selectedGroupKeys.has(group[0].prId || group[0].id),
+  );
+  const selectedIds = selectedGroups.flatMap((group) =>
+    group.map((notification) => notification.id),
+  );
+  const sectionKeys = ["needs-you", "teammates", "activity"];
+  const labels = ["Needs you", "Teammates", "Activity"];
+  const finishSelection = () => {
+    setSelecting(false);
+    setSelectedGroupKeys(new Set());
+  };
   return html`<div class="notif-controls">
-      ${["unread", "read", "old"].map((value) => html`<button class=${`notif-filter-btn ${filter === value ? "active" : ""}`} data-notif-filter=${value} onClick=${() => setFilter(value)}>${value[0].toUpperCase() + value.slice(1)}</button>`)}
+      <div class="notif-filter-group" aria-label="Notification status">
+        ${["unread", "read", "old"].map(
+          (value) =>
+            html`<button
+              class=${`notif-filter-btn ${filter === value ? "active" : ""}`}
+              data-notif-filter=${value}
+              aria-pressed=${filter === value}
+              onClick=${() => changeFilter(value)}
+            >
+              ${value[0].toUpperCase() + value.slice(1)}
+            </button>`,
+        )}
+      </div>
+      <span class="notif-visible-summary"
+        >${visible.length}
+        ${visible.length === 1 ? "conversation" : "conversations"}</span
+      >
+      ${
+        selecting
+          ? html`<div class="notif-selection-tools">
+              <${SelectionBox}
+                checked=${selectedGroups.length === visible.length && visible.length > 0}
+                indeterminate=${selectedGroups.length > 0 && selectedGroups.length < visible.length}
+                label="Select all visible conversations"
+                onChange=${(checked) => setGroupsSelected(visibleGroupKeys, checked)}
+              />
+              <strong>${selectedGroups.length} selected</strong>
+              <button
+                disabled=${!selectedIds.length}
+                onClick=${() => {
+                update(selectedIds, { readAt: Date.now() });
+                finishSelection();
+              }}
+              >
+                Mark read
+              </button>
+              <button
+                disabled=${!selectedIds.length}
+                onClick=${() => {
+                update(selectedIds, { readAt: null });
+                finishSelection();
+              }}
+              >
+                Mark unread
+              </button>
+              <button onClick=${finishSelection}>Cancel</button>
+            </div>`
+          : html`<button
+              class="notif-select-mode"
+              disabled=${!visible.length}
+              onClick=${() => setSelecting(true)}
+            >
+              Select
+            </button>`
+      }
       <button
         class="notif-mark-all"
         id="notif-mark-all"
-        disabled=${items.every((n) => n.readAt)}
-        onClick=${() => setItems((previous) => previous.map((n) => ({ ...n, readAt: n.readAt || Date.now() })))}
+        disabled=${!visibleNotifications.some((notification) => !notification.readAt)}
+        onClick=${() =>
+          update(
+            visibleNotifications
+              .filter((notification) => !notification.readAt)
+              .map((notification) => notification.id),
+            { readAt: Date.now() },
+          )}
+        }
       >
-        Mark all read
+        Mark visible read
       </button>
     </div>
     <div class="notif-list" id="notif-list">
       ${sectionKeys.map((key, index) => {
-        const groups = visible.filter(
-          (group) =>
-            sectionKeys.find((candidate) =>
-              group.some((n) => notificationSection(n) === candidate),
-            ) === key,
+        const groups = notificationGroups(
+          visibleNotifications.filter(
+            (notification) => notificationSection(notification) === key,
+          ),
         );
         return groups.length
           ? html`<${Section}
               key=${key}
+              sectionKey=${key}
               label=${labels[index]}
               groups=${groups}
               update=${update}
+              selecting=${selecting}
+              selectedGroupKeys=${selectedGroupKeys}
+              setGroupsSelected=${setGroupsSelected}
             />`
           : null;
       })}
-      ${!visible.length && html`<div class="notif-empty">${filter === "unread" ? html`You're all caught up.<br /><span style=${{ fontSize: "12px" }}>New PR activity will appear here.</span>` : filter === "old" ? "No old notifications." : "No read notifications."}</div>`}
+      ${
+        !visible.length &&
+        html`<div class="notif-empty">
+          ${
+          filter === "unread"
+            ? html`You're all caught up.<br /><span
+                  >New GitHub activity will appear here.</span
+                >`
+            : filter === "old"
+              ? "No old notifications."
+              : "No read notifications."
+        }
+        </div>`
+      }
     </div>`;
 }

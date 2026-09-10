@@ -1,31 +1,11 @@
 import { config } from "../config.js";
-import { ghJson, ghGraphQL } from "./client.js";
-export async function search(query, token) {
-  const ignoredReposQuery = [...config.IGNORED_REPOS]
-    .map((repo) => `-repo:${repo}`)
-    .join(" ");
-  const data = await ghJson(
-    `/search/issues?q=${encodeURIComponent(`${query} ${ignoredReposQuery}`.trim())}&per_page=100`,
-    token,
-  );
-  if (data.incomplete_results || data.total_count > 1000)
-    throw new Error(
-      "GitHub search is incomplete. Narrow the organization or team scope.",
-    );
-  return data.items || [];
-}
-export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
-  if (logins.length === 0) return [];
-  const qualifierStr = logins.map((login) => `${qualifier}:${login}`).join(" ");
-  const ignoredReposQuery = [...config.IGNORED_REPOS]
-    .map((repo) => `-repo:${repo}`)
-    .join(" ");
-  const q =
-    `is:pr is:open archived:false org:${config.ORG} ${qualifierStr} ${extraQ} ${ignoredReposQuery}`.trim();
+import { ghGraphQL } from "./client.js";
+
+async function searchPullRequests(query, token) {
   const nodes = [];
   let cursor = null;
   do {
-    const gql = `{ search(query: ${JSON.stringify(q)}, type: ISSUE, first: 100, after: ${JSON.stringify(cursor)}) {
+    const gql = `{ search(query: ${JSON.stringify(query)}, type: ISSUE, first: 100, after: ${JSON.stringify(cursor)}) {
     issueCount
     pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest {
@@ -38,7 +18,7 @@ export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
     const data = await ghGraphQL(gql, token);
     if (data.search.issueCount > 1000)
       throw new Error(
-        "GitHub search exceeds 1,000 results. Narrow the team scope.",
+        "GitHub search exceeds 1,000 results. Narrow the organization or team scope.",
       );
     nodes.push(...(data.search.nodes || []).filter((node) => node.repository));
     const next = data.search.pageInfo;
@@ -46,7 +26,6 @@ export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
       throw new Error("Invalid GitHub search cursor");
     cursor = next?.hasNextPage ? next.endCursor : null;
   } while (cursor);
-  // Reshape GraphQL nodes to match the REST search item shape expected by callers
   return nodes.map((node) => ({
     number: node.number,
     title: node.title,
@@ -55,9 +34,28 @@ export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
     created_at: node.createdAt,
     draft: node.isDraft,
     user: { login: node.author?.login || null },
-    assignees: (node.assignees?.nodes || []).map((u) => ({ login: u.login })),
+    assignees: (node.assignees?.nodes || []).map((user) => ({
+      login: user.login,
+    })),
     repository_url: `https://api.github.com/repos/${node.repository.nameWithOwner}`,
   }));
+}
+
+export async function search(query, token) {
+  const ignoredReposQuery = [...config.IGNORED_REPOS]
+    .map((repo) => `-repo:${repo}`)
+    .join(" ");
+  return searchPullRequests(`${query} ${ignoredReposQuery}`.trim(), token);
+}
+export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
+  if (logins.length === 0) return [];
+  const qualifierStr = logins.map((login) => `${qualifier}:${login}`).join(" ");
+  const ignoredReposQuery = [...config.IGNORED_REPOS]
+    .map((repo) => `-repo:${repo}`)
+    .join(" ");
+  const q =
+    `is:pr is:open archived:false org:${config.ORG} ${qualifierStr} ${extraQ} ${ignoredReposQuery}`.trim();
+  return searchPullRequests(q, token);
 }
 export function repoFromIssue(item) {
   const match = item.repository_url.match(/\/repos\/(.+)$/);

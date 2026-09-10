@@ -186,7 +186,7 @@ export function collectNotificationEvents(
       id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       key,
       type,
-      actor: null,
+      actor: mention.actor || null,
       isBot: false,
       prId: mention.prId,
       prTitle: mention.title,
@@ -199,4 +199,24 @@ export function collectNotificationEvents(
   }
 
   return items;
+}
+
+export function repairNotificationActors(items, mentions) {
+  const actors = new Map(
+    mentions
+      .filter((mention) => mention.actor)
+      .map((mention) => [
+        `${mention.prId}:${mention.id}:${mention.updatedAt}`,
+        mention.actor,
+      ]),
+  );
+  return items.map((item) => {
+    if (item.actor) return item;
+    const match = item.key?.match(
+      /^(?:mentioned|assigned|pr_closed|team_mentioned):(.+):([^:]+):(.*)$/,
+    );
+    if (!match) return item;
+    const actor = actors.get(`${match[1]}:${match[2]}:${match[3]}`);
+    return actor ? { ...item, actor } : item;
+  });
 }

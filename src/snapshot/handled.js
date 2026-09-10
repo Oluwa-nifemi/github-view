@@ -8,6 +8,7 @@ import { normalizeReviews } from "../domain/reviews.js";
 import {
   latestActivityAt,
   hasExternalActivitySince,
+  hasActionableActivitySince,
 } from "../domain/activity.js";
 
 import { parsePRFromNotification } from "../github/notifications.js";
@@ -114,12 +115,32 @@ export async function enrichHandled({ notifications, cachedPRs, prs, token }) {
         comments,
         commits,
       );
+      const latestUserReview =
+        reviews
+          .filter(
+            (review) =>
+              review.user?.login === session.USERNAME &&
+              review.state !== "COMMENTED",
+          )
+          .sort(
+            (leftReview, rightReview) =>
+              new Date(rightReview.submitted_at) -
+              new Date(leftReview.submitted_at),
+          )[0] || null;
       const lastUserReviewAt = latestActivityAt(
         reviews
           .filter((r) => r.user?.login === session.USERNAME && r.submitted_at)
           .map((r) => r.submitted_at),
       );
-      const changedSinceTouched = youReviewed && externalActivityAfterUser;
+      const changedSinceTouched =
+        youReviewed &&
+        hasActionableActivitySince(
+          lastUserActivityAt,
+          latestUserReview?.state,
+          reviews,
+          comments,
+          commits,
+        );
 
       if (changedSinceTouched) {
         prs[prId] = {

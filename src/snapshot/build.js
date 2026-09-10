@@ -14,6 +14,7 @@ import { enrichMine } from "./mine.js";
 import { enrichHandled } from "./handled.js";
 import { enrichEngaged } from "./engaged.js";
 import { enrichTeammateOpen } from "./teammate-open.js";
+import { collectMyItems, excludeOwnedReviewItems } from "./sources.js";
 export async function buildSnapshot(
   token,
   cachedSnapshot,
@@ -26,7 +27,7 @@ export async function buildSnapshot(
   });
   session.teammates = await getTeammates(token);
   const cachedPRs =
-    cachedSnapshot?.version === 2 && cachedSnapshot.scope === scope
+    cachedSnapshot?.version === 4 && cachedSnapshot.scope === scope
       ? cachedSnapshot.prs
       : {};
 
@@ -86,24 +87,19 @@ export async function buildSnapshot(
   }
   const agentBotItems = [...agentBotItemsMap.values()];
 
-  // Section 4 sources: PRs you authored OR PRs assigned to you that were opened by the agent bot.
-  // Also include agent-bot-authored PRs that name you as an assignee, since GitHub's
-  // assignee search occasionally misses freshly-assigned PRs.
-  const agentBotAssigned = [
-    ...assignedItems.filter(
-      (item) => item.user?.login === config.AGENT_BOT_LOGIN,
-    ),
-    ...agentBotItems.filter((item) =>
-      (item.assignees || []).some((a) => a.login === session.USERNAME),
-    ),
-  ];
+  // Ownership wins over source classification. Recover authored PRs from any
+  // source if GitHub's authored search temporarily omits them.
+  const myItems = collectMyItems({
+    username: session.USERNAME,
+    agentBotLogin: config.AGENT_BOT_LOGIN,
+    sources: [authoredItems, assignedItems, allReviewItems, agentBotItems],
+  });
   const myItemsMap = new Map();
-  for (const item of [...authoredItems, ...agentBotAssigned]) {
+  for (const item of myItems) {
     const repo = repoFromIssue(item);
     if (!repo) continue;
     myItemsMap.set(`${repo}#${item.number}`, item);
   }
-  const myItems = [...myItemsMap.values()];
   const reviewDecisions = await getReviewDecisions(myItems, token);
 
   const prs = {};
@@ -112,7 +108,7 @@ export async function buildSnapshot(
     token,
     cachedPRs,
     prs,
-    allReviewItems,
+    allReviewItems: excludeOwnedReviewItems(allReviewItems, myItemsMap),
     agentBotItems,
     myItemsMap,
     myItems,
@@ -124,7 +120,7 @@ export async function buildSnapshot(
   await enrichMine(ctx);
   // Show primary PRs on first load without committing an incomplete cache.
   onProgress({
-    version: 2,
+    version: 4,
     scope,
     prs: { ...prs },
     mentions: [],
@@ -132,8 +128,8 @@ export async function buildSnapshot(
   });
   const { notifications, extraNotifs } = await fetchRecentNotifications(token);
   ctx.notifications = notifications;
-  await enrichHandled(ctx);
   await enrichEngaged(ctx);
+  await enrichHandled(ctx);
   await enrichTeammateOpen(ctx);
   // Normalize extra notifications for storage (compact shape)
   const mentions = extraNotifs
@@ -150,6 +146,7 @@ export async function buildSnapshot(
         number,
         prId: repo && number ? `${repo}#${number}` : null,
         title: n.subject?.title || "",
+        actor: n.actor || null,
         updatedAt: n.updated_at,
         url:
           repo && number ? `https://github.com/${repo}/pull/${number}` : null,
@@ -158,7 +155,7 @@ export async function buildSnapshot(
     .filter((m) => m.prId && !config.IGNORED_REPOS.has(m.repo));
 
   return {
-    version: 2,
+    version: 4,
     scope,
     prs,
     mentions,

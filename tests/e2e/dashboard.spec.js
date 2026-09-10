@@ -54,22 +54,34 @@ async function mockGitHub(
     if (url.pathname === "/user") data = { login: "fixture-user" };
     else if (url.pathname.includes("/members")) data = [{ login: "team-user" }];
     else if (url.pathname === "/notifications") data = [];
-    else if (url.pathname === "/search/issues") {
-      const query = url.searchParams.get("q");
+    else if (url.pathname === "/graphql") {
+      const query = route.request().postDataJSON().query;
       const items = query.includes("review-requested:fixture-user")
         ? [requested]
         : query.includes("author:fixture-user")
           ? [mine]
           : [];
-      data = { items, total_count: items.length, incomplete_results: false };
-    } else if (url.pathname === "/graphql") {
-      const query = route.request().postDataJSON().query;
       data = {
         data: query.includes("search(")
           ? {
               search: {
-                issueCount: 0,
-                nodes: [],
+                issueCount: items.length,
+                nodes: items.map((item) => ({
+                  number: item.number,
+                  title: item.title,
+                  url: item.html_url,
+                  updatedAt: item.updated_at,
+                  createdAt: item.created_at,
+                  isDraft: item.draft,
+                  author: item.user,
+                  assignees: { nodes: [] },
+                  repository: {
+                    nameWithOwner: item.repository_url.replace(
+                      "https://api.github.com/repos/",
+                      "",
+                    ),
+                  },
+                })),
                 pageInfo: { hasNextPage: false },
               },
             }
@@ -453,24 +465,13 @@ test("notification read and pin states survive reload", async ({
   );
   await page.reload();
   await page.getByRole("button", { name: /^Notifications/ }).click();
-  for (const [name, width, height] of [
-    ["desktop", 1440, 1000],
-    ["mobile", 390, 844],
-  ]) {
-    await page.setViewportSize({ width, height });
-    await page
-      .getByRole("button", { name: "Expand activity", exact: true })
-      .click();
-    await page.screenshot({
-      path: testInfo.outputPath(`${name}-notifications.png`),
-      fullPage: true,
-    });
-    await page
-      .getByRole("button", { name: "Collapse activity", exact: true })
-      .click();
-  }
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole("button", { name: "Pin", exact: true }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("desktop-notifications.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Pin Synthetic mention" }).click();
   await page.route("https://github.com/**", (route) =>
     route.fulfill({ body: "Fixture GitHub" }),
   );
@@ -484,9 +485,9 @@ test("notification read and pin states survive reload", async ({
   await expect(page.locator(".pr-thread")).toContainText("Synthetic mention");
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Unpin", exact: true }),
+    page.getByRole("button", { name: "Unpin Synthetic mention" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Mark unread", exact: true }).click();
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
   await page.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(page.locator(".pr-thread")).toBeVisible();
 });
@@ -539,14 +540,16 @@ test("unread groups exclude read comments and opening a comment clears only that
   await expect(page.locator(".pr-thread")).not.toContainText(
     "Already read comment",
   );
-  await expect(page.locator(".pr-latest")).toContainText(
+  await expect(page.locator(".notif-comment")).toHaveCount(2);
+  await expect(page.locator(".notif-comments")).toContainText(
     "Unread second comment",
   );
   await expect(
+    page.locator(".notif-actor", { hasText: "team-user" }),
+  ).toHaveCount(1);
+  await expect(
     page.getByRole("button", { name: "Mark read", exact: true }),
   ).toHaveCount(1);
-  await page.getByRole("button", { name: "Expand activity" }).click();
-  await expect(page.locator(".tl-comment")).toHaveCount(2);
   await page.route("https://github.com/**", (route) =>
     route.fulfill({ body: "Fixture GitHub" }),
   );
@@ -572,12 +575,89 @@ test("unread groups exclude read comments and opening a comment clears only that
     "Unread second comment",
   );
   await page.getByRole("button", { name: "Unread", exact: true }).click();
-  await page.locator(".pr-title").hover();
-  await expect(page.locator(".pr-title")).toHaveCSS("text-decoration-line", "none");
+  await page.locator(".notif-pr-title").hover();
+  await expect(page.locator(".notif-pr-title")).toHaveCSS(
+    "text-decoration-line",
+    "none",
+  );
   await page.getByRole("button", { name: "Mark read", exact: true }).click();
   await expect(page.locator(".pr-thread")).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".pr-thread")).toHaveCount(0);
+});
+
+test("notifications hide selection until group bulk mode is enabled", async ({
+  page,
+}) => {
+  await mockGitHub(page);
+  await ready(page);
+  await page.evaluate(() => {
+    const now = new Date().toISOString();
+    localStorage.setItem(
+      "gh_digest_notifications",
+      JSON.stringify([
+        {
+          id: "needs-1",
+          type: "mentioned",
+          actor: "team-user",
+          prId: "ardoq/example#1",
+          prTitle: "First grouped PR",
+          prUrl: "https://github.com/ardoq/example/pull/1",
+          preview: "First notification",
+          createdAt: now,
+        },
+        {
+          id: "needs-2",
+          type: "assigned",
+          actor: "team-user",
+          prId: "ardoq/example#1",
+          prTitle: "First grouped PR",
+          prUrl: "https://github.com/ardoq/example/pull/1",
+          preview: "Second notification",
+          createdAt: now,
+        },
+        {
+          id: "activity-1",
+          type: "comment_on_watched_pr",
+          actor: "outside-user",
+          prAuthor: "outside-author",
+          prId: "ardoq/example#1",
+          prTitle: "First grouped PR",
+          prUrl: "https://github.com/ardoq/example/pull/1",
+          preview: "Background notification",
+          createdAt: now,
+        },
+        {
+          id: "needs-3",
+          type: "mentioned",
+          actor: "team-user",
+          prId: "ardoq/example#2",
+          prTitle: "Second grouped PR",
+          prUrl: "https://github.com/ardoq/example/pull/2",
+          preview: "Third notification",
+          createdAt: now,
+        },
+      ]),
+    );
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+
+  await expect(page.getByText("2 conversations")).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.locator("#notif-needs-you .notif-comment")).toHaveCount(3);
+  await expect(page.locator("#notif-activity .notif-comment")).toHaveCount(1);
+  await expect(
+    page.locator("#notif-needs-you .notif-actor", { hasText: "team-user" }),
+  ).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await page.getByLabel("Select Second grouped PR").check();
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await page.getByRole("button", { name: "Mark read", exact: true }).click();
+  await expect(page.locator("#notif-needs-you .pr-thread")).toHaveCount(1);
+  await expect(page.locator("#notif-activity .pr-thread")).toHaveCount(1);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
 
 test("recovers corrupt storage and stays within a mobile viewport", async ({

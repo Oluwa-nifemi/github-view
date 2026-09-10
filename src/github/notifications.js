@@ -11,6 +11,39 @@ export function parsePRFromNotification(notification) {
   return { repo, number: parseInt(match[2], 10) };
 }
 
+async function resolveActor(notification, token) {
+  if (notification.subject?.latest_comment_url) {
+    const comment = await ghJson(
+      notification.subject.latest_comment_url,
+      token,
+    );
+    return comment.user?.login || null;
+  }
+  const pr = parsePRFromNotification(notification);
+  if (!pr) return null;
+  if (["mention", "comment", "team_mention"].includes(notification.reason)) {
+    const pullRequest = await ghJson(notification.subject.url, token);
+    return pullRequest.user?.login || null;
+  }
+  const events = await ghJson(
+    `/repos/${pr.repo}/issues/${pr.number}/timeline?per_page=100`,
+    token,
+  );
+  const eventTypes =
+    notification.reason === "assign"
+      ? new Set(["assigned"])
+      : new Set(["closed", "merged", "reopened"]);
+  return (
+    [...events]
+      .reverse()
+      .find(
+        (event) =>
+          eventTypes.has(event.event) &&
+          Date.parse(event.created_at) <= Date.parse(notification.updated_at),
+      )?.actor?.login || null
+  );
+}
+
 export async function fetchRecentNotifications(token) {
   const cutoff = Date.now() - 6 * 60 * 60 * 1000;
   const since = new Date(cutoff).toISOString();
@@ -25,19 +58,22 @@ export async function fetchRecentNotifications(token) {
       (n) =>
         Date.parse(n.updated_at) >= cutoff && n.subject?.type === "PullRequest",
     );
+  const extraNotifs = recent.filter(
+    (n) =>
+      ["mention", "comment", "state_change", "assign", "team_mention"].includes(
+        n.reason,
+      ) && n.subject?.type === "PullRequest",
+  );
+  const enrichedExtraNotifs = await Promise.all(
+    extraNotifs.map(async (notification) => ({
+      ...notification,
+      actor: await resolveActor(notification, token).catch(() => null),
+    })),
+  );
   return {
     notifications: recent.filter((n) =>
       ["review_requested", "team_mention"].includes(n.reason),
     ),
-    extraNotifs: recent.filter(
-      (n) =>
-        [
-          "mention",
-          "comment",
-          "state_change",
-          "assign",
-          "team_mention",
-        ].includes(n.reason) && n.subject?.type === "PullRequest",
-    ),
+    extraNotifs: enrichedExtraNotifs,
   };
 }

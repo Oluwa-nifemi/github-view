@@ -31,6 +31,55 @@ export function hasExternalActivitySince(
   });
   return externalReview || externalComment || externalCommit;
 }
+
+export function hasReviewOrCommitActivitySince(
+  lastUserActivityAt,
+  reviews,
+  _comments,
+  commits,
+) {
+  if (!lastUserActivityAt) return false;
+  const lastUserActivityMs = new Date(lastUserActivityAt).getTime();
+  const happenedAfter = (timestamp) =>
+    timestamp && new Date(timestamp).getTime() > lastUserActivityMs;
+
+  const externalReview = reviews.some(
+    (review) =>
+      review.user?.login !== session.USERNAME &&
+      review.state !== "COMMENTED" &&
+      happenedAfter(review.submitted_at),
+  );
+  const externalCommit = commits.some((commit) => {
+    const actor = commit.author?.login || commit.committer?.login;
+    const committedAt =
+      commit.commit?.committer?.date || commit.commit?.author?.date;
+    return actor !== session.USERNAME && happenedAfter(committedAt);
+  });
+  return externalReview || externalCommit;
+}
+
+export function hasActionableActivitySince(
+  lastUserActivityAt,
+  latestUserReviewState,
+  reviews,
+  comments,
+  commits,
+) {
+  if (latestUserReviewState === "APPROVED") {
+    return hasReviewOrCommitActivitySince(
+      lastUserActivityAt,
+      reviews,
+      comments,
+      commits,
+    );
+  }
+  return hasExternalActivitySince(
+    lastUserActivityAt,
+    reviews,
+    comments,
+    commits,
+  );
+}
 export function diff(oldSnap, newSnap) {
   const badges = {};
   if (!oldSnap) return badges; // baseline only on first run
@@ -42,7 +91,7 @@ export function diff(oldSnap, newSnap) {
     if (!old) {
       badges[prId] = "NEW";
     } else if (old.section !== pr.section) {
-      badges[prId] = "NEW";
+      if (old.updatedAt !== pr.updatedAt) badges[prId] = "UPDATED";
     } else if (
       pr.isDirect &&
       pr.reviewedBefore &&

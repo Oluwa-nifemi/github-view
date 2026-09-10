@@ -13,16 +13,16 @@
 | GitHub queries         | `src/github/search.js`, `teammates.js`, `notifications.js`                            | Search, GraphQL decisions, roster caching, notification sources       |
 | Snapshot orchestration | `src/snapshot/build.js`                                                               | Gather sources, deduplicate, run stages, version/cache scope          |
 | Snapshot stages        | `requested.js`, `agent.js`, `mine.js`, `handled.js`, `engaged.js`, `teammate-open.js` | Separate PR source rules; explicit build context                      |
-| Snapshot helpers       | `src/snapshot/model.js`, `ci.js`                                                      | PR data shape and CI classification                                   |
+| Snapshot helpers       | `src/snapshot/model.js`, `ci.js`, `sources.js`                                        | PR data shape, source priority, and CI classification                 |
 | Domain rules           | `src/domain/reviews.js`, `activity.js`, `comments.js`, `text.js`                      | Review classification, badges, activity, normalized comments          |
-| Styling                | `src/styles/base.css`, `cards.css`, `app.css`, `notifications.css`, `integration.css` | Original styling plus semantic-control compatibility                 |
+| Styling                | `src/styles/base.css`, `cards.css`, `app.css`, `notifications.css`, `integration.css` | Original styling plus semantic-control compatibility                  |
 | Local runtime          | `scripts/serve.mjs`, `startup.mjs`                                                    | Loopback server and macOS login service                               |
 | Migration              | `github-digest.html`, `scripts/export-legacy.js`                                      | Export settings from the old file origin                              |
 | Watcher                | `.gh-digest/watch.mjs`                                                                | Optional separate one-shot macOS notification check                   |
 
 ## Data Contracts
 
-Snapshot: `{version, scope, prs, mentions, timestamp}`. `prs` maps `owner/repo#number` to PR data. Section numbers remain compatible with old caches: 3=requested, 4=mine, 5=handled, 6=engaged, 7=teammates. Legacy 1/2 render as requested.
+Snapshot: `{version, scope, prs, mentions, timestamp}`. `prs` maps `owner/repo#number` to PR data. Mention entries include the resolved GitHub actor when available. Section numbers remain compatible with old caches: 3=requested, 4=mine, 5=handled, 6=engaged, 7=teammates. Legacy 1/2 render as requested.
 
 On first load, `buildSnapshot` can emit a primary-PR preview with `partial: true` through its progress callback. This preview is displayed but never persisted as a complete snapshot. Notification discovery fetches one page of at most 100 items updated in the past six hours; the Old view uses retained local history.
 
