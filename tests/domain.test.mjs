@@ -20,6 +20,7 @@ const {
 } = await import("../src/ui/Notifications.js");
 const { diff, hasActionableActivitySince } =
   await import("../src/domain/activity.js");
+const { normalize, read } = await import("../src/ui/state.js");
 session.USERNAME = "me";
 const at = "2026-09-07T10:00:00Z";
 const later = "2026-09-07T11:00:00Z";
@@ -326,6 +327,45 @@ test("empty bot review events are hidden while bot comments remain visible", () 
   };
 
   assert.deepEqual(notificationGroups([hiddenReview, comment]), [[comment]]);
+});
+
+test("stored empty review events are removed without relying on bot metadata", () => {
+  const emptyReview = {
+    id: "empty-review",
+    key: "empty-review",
+    prId: "org/repo#1",
+    type: "new_review",
+    createdAt: later,
+    preview: "",
+  };
+  const comment = {
+    id: "comment",
+    key: "comment",
+    prId: "org/repo#1",
+    type: "comment_on_my_pr",
+    createdAt: at,
+    preview: "Useful comment",
+  };
+
+  assert.deepEqual(
+    normalize("gh_digest_notifications", [emptyReview, comment], []),
+    [comment],
+  );
+});
+
+test("reading notifications removes invalid stored events from local storage", () => {
+  const emptyReview = {
+    id: "empty-review",
+    key: "empty-review",
+    prId: "org/repo#1",
+    type: "new_review",
+    createdAt: later,
+    preview: "",
+  };
+  values.set("gh_digest_notifications", JSON.stringify([emptyReview]));
+
+  assert.deepEqual(read("gh_digest_notifications", []), []);
+  assert.equal(values.get("gh_digest_notifications"), "[]");
 });
 
 test("empty bot COMMENTED reviews do not create notifications", () => {

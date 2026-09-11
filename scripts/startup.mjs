@@ -68,7 +68,15 @@ try {
     // Build before touching an existing working service.
     run("npm", ["ci"], { env });
     run("npm", ["run", "build"], { env });
-    await readFile(resolve(root, "dist/index.html"));
+    const builtIndex = resolve(root, "dist/index.html");
+    const buildId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await writeFile(
+      builtIndex,
+      (await readFile(builtIndex, "utf8")).replace(
+        "__GITHUB_VIEW_BUILD_ID__",
+        buildId,
+      ),
+    );
     // Install runtime assets outside macOS's protected Documents directory.
     await mkdir(resolve(runtime, "scripts"), { recursive: true });
     await cp(resolve(root, "dist"), resolve(runtime, "dist"), {

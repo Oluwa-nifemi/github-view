@@ -22,7 +22,8 @@ export function normalize(key, value, fallback) {
               "prUrl",
             ].every(
               (field) => item[field] == null || typeof item[field] === "string",
-            ),
+            ) &&
+            !(item.type === "new_review" && !item.preview?.trim()),
         )
       : [];
   if (key === "gh_digest_last_snapshot") {
@@ -108,8 +109,12 @@ export function normalize(key, value, fallback) {
 }
 export function read(key, fallback) {
   try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return normalize(key, value === null ? fallback : value, fallback);
+    const stored = localStorage.getItem(key);
+    const value = JSON.parse(stored);
+    const result = normalize(key, value === null ? fallback : value, fallback);
+    if (key === "gh_digest_notifications" && stored !== JSON.stringify(result))
+      write(key, result);
+    return result;
   } catch {
     return fallback;
   }

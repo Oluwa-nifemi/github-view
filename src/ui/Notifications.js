@@ -43,8 +43,7 @@ export function notificationGroups(items) {
   );
   for (const item of items) {
     if (config.IGNORED_REPOS.has((item.prId || "").split("#")[0])) continue;
-    if (item.type === "new_review" && item.isBot && !item.preview?.trim())
-      continue;
+    if (item.type === "new_review" && !item.preview?.trim()) continue;
     if (
       ["mentioned", "team_mentioned"].includes(item.type) &&
       !item.preview?.trim() &&
