@@ -147,6 +147,10 @@ export async function buildSnapshot(
         prId: repo && number ? `${repo}#${number}` : null,
         title: n.subject?.title || "",
         actor: n.actor || null,
+        commentId: n.commentId || null,
+        eventAt: n.eventAt || null,
+        preview: n.preview || "",
+        commentUrl: n.commentUrl || null,
         updatedAt: n.updated_at,
         url:
           repo && number ? `https://github.com/${repo}/pull/${number}` : null,

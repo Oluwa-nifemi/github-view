@@ -24,6 +24,8 @@ export function collectNotificationEvents(
           (review.user === config.AGENT_BOT_LOGIN ||
             review.user.endsWith("[bot]"));
         if (review.state === "COMMENTED" && !isBot) continue;
+        if (review.state === "COMMENTED" && isBot && !review.preview?.trim())
+          continue;
         const rKey = `${review.user}:${review.submittedAt}`;
         if (oldReviewKeys.has(rKey)) continue;
         let type;
@@ -145,11 +147,25 @@ export function collectNotificationEvents(
   }
 
   // Extra notifications: @mentions, state changes, assignments, team mentions
-  const oldExtraIds = new Set(
-    (oldSnap.mentions || []).map((m) => `${m.id}:${m.updatedAt}`),
+  const extraIdentity = (mention) =>
+    mention.commentId
+      ? `${mention.id}:comment:${mention.commentId}`
+      : `${mention.id}:${mention.updatedAt}`;
+  const oldExtraById = new Map(
+    (oldSnap.mentions || []).map((mention) => [mention.id, mention]),
   );
+  const oldExtraIds = new Set((oldSnap.mentions || []).map(extraIdentity));
   for (const mention of newSnap.mentions || []) {
-    if (oldExtraIds.has(`${mention.id}:${mention.updatedAt}`)) continue;
+    const oldMention = oldExtraById.get(mention.id);
+    if (
+      mention.commentId &&
+      oldMention &&
+      !oldMention.commentId &&
+      mention.eventAt &&
+      Date.parse(mention.eventAt) <= Date.parse(oldMention.updatedAt)
+    )
+      continue;
+    if (oldExtraIds.has(extraIdentity(mention))) continue;
 
     // Map GitHub reason to our event type
     let type;
@@ -180,7 +196,8 @@ export function collectNotificationEvents(
     )
       continue;
 
-    const key = `${type}:${mention.prId}:${mention.id}:${mention.updatedAt}`;
+    const eventIdentity = mention.commentId || mention.updatedAt;
+    const key = `${type}:${mention.prId}:${mention.id}:${eventIdentity}`;
     if (existingKeys.has(key)) continue;
     items.unshift({
       id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -191,7 +208,10 @@ export function collectNotificationEvents(
       prId: mention.prId,
       prTitle: mention.title,
       prUrl: mention.url,
-      createdAt: mention.updatedAt || new Date().toISOString(),
+      preview: mention.preview || "",
+      commentUrl: mention.commentUrl || null,
+      createdAt:
+        mention.eventAt || mention.updatedAt || new Date().toISOString(),
       readAt: null,
       prAuthor: newSnap.prs[mention.prId]?.author || null,
     });

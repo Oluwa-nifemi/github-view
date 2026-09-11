@@ -480,21 +480,25 @@ test("notification read and pin states survive reload", async ({
     .getByRole("link", { name: "Synthetic mention", exact: true })
     .click();
   await (await popupPromise).close();
+  await expect(page.locator(".pr-thread")).toContainText("Synthetic mention");
+  await page
+    .getByRole("button", { name: "Mark read: Synthetic mention" })
+    .click();
   await expect(page.locator(".pr-thread")).toHaveCount(0);
-  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await page.locator('[data-notif-filter="read"]').click();
   await expect(page.locator(".pr-thread")).toContainText("Synthetic mention");
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Unpin Synthetic mention" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Unread", exact: true }).click();
-  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mark unread: Synthetic mention" })
+    .click();
+  await page.locator('[data-notif-filter="unread"]').click();
   await expect(page.locator(".pr-thread")).toBeVisible();
 });
 
-test("unread groups exclude read comments and opening a comment clears only that event", async ({
-  page,
-}) => {
+test("opening notification links preserves unread state", async ({ page }) => {
   await mockGitHub(page);
   await ready(page);
   await page.evaluate(() => {
@@ -558,29 +562,38 @@ test("unread groups exclude read comments and opening a comment clears only that
     .getByRole("link", { name: "Unread first comment", exact: true })
     .click();
   await (await popup).close();
-  await expect(page.locator(".pr-thread")).not.toContainText(
+  await expect(page.locator(".pr-thread")).toContainText(
     "Unread first comment",
   );
   await expect(page.locator(".pr-thread")).toContainText(
     "Unread second comment",
   );
-  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mark read: Grouped activity" })
+    .click();
+  await expect(page.locator(".pr-thread")).toHaveCount(0);
+  await page.locator('[data-notif-filter="read"]').click();
   await expect(page.locator(".pr-thread")).toContainText(
     "Already read comment",
   );
   await expect(page.locator(".pr-thread")).toContainText(
     "Unread first comment",
   );
-  await expect(page.locator(".pr-thread")).not.toContainText(
+  await expect(page.locator(".pr-thread")).toContainText(
     "Unread second comment",
   );
-  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mark unread: Grouped activity" })
+    .click();
+  await page.locator('[data-notif-filter="unread"]').click();
   await page.locator(".notif-pr-title").hover();
   await expect(page.locator(".notif-pr-title")).toHaveCSS(
     "text-decoration-line",
     "none",
   );
-  await page.getByRole("button", { name: "Mark read", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mark read: Grouped activity" })
+    .click();
   await expect(page.locator(".pr-thread")).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".pr-thread")).toHaveCount(0);

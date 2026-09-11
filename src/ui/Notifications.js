@@ -36,8 +36,21 @@ export function notificationSection(notification) {
 
 export function notificationGroups(items) {
   const groups = new Map();
+  const detailedEvents = new Set(
+    items
+      .filter((item) => item.preview?.trim())
+      .map((item) => `${item.prId || item.id}:${item.actor || ""}`),
+  );
   for (const item of items) {
     if (config.IGNORED_REPOS.has((item.prId || "").split("#")[0])) continue;
+    if (item.type === "new_review" && item.isBot && !item.preview?.trim())
+      continue;
+    if (
+      ["mentioned", "team_mentioned"].includes(item.type) &&
+      !item.preview?.trim() &&
+      detailedEvents.has(`${item.prId || item.id}:${item.actor || ""}`)
+    )
+      continue;
     const key = item.prId || item.id;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(item);
@@ -110,7 +123,7 @@ function SelectionBox({ checked, indeterminate = false, label, onChange }) {
   </label>`;
 }
 
-function CommentList({ events, markOpened }) {
+function CommentList({ events }) {
   return html`<div class="notif-comments">
     ${events.map(
       (entry) =>
@@ -119,8 +132,6 @@ function CommentList({ events, markOpened }) {
           href=${safeUrl(entry.commentUrl || entry.prUrl)}
           target="_blank"
           rel="noopener noreferrer"
-          onClick=${(event) => markOpened(event, [entry])}
-          onAuxClick=${(event) => markOpened(event, [entry])}
         >
           ${entry.preview || "Open notification"}
         </a>`,
@@ -128,7 +139,7 @@ function CommentList({ events, markOpened }) {
   </div>`;
 }
 
-function ActorGroup({ actorGroup, markOpened }) {
+function ActorGroup({ actorGroup }) {
   const types = [...new Set(actorGroup.events.map((event) => event.type))];
   return html`<div class="notif-actor-group">
     <div class="notif-actor-line">
@@ -143,7 +154,7 @@ function ActorGroup({ actorGroup, markOpened }) {
       }
       <time class="notif-time">${relativeTime(actorGroup.latestAt)}</time>
     </div>
-    <${CommentList} events=${actorGroup.events} markOpened=${markOpened} />
+    <${CommentList} events=${actorGroup.events} />
   </div>`;
 }
 
@@ -152,15 +163,6 @@ function Thread({ group, update, selecting, selected, setSelected }) {
   const ids = group.map((notification) => notification.id);
   const read = group.every((notification) => notification.readAt);
   const pinned = group.some((notification) => notification.pinnedAt);
-  const markOpened = (event, opened = group) => {
-    if (event.type === "auxclick" && event.button !== 1) return;
-    update(
-      opened
-        .filter((notification) => !notification.readAt)
-        .map((item) => item.id),
-      { readAt: Date.now() },
-    );
-  };
   return html`<article
     class=${`pr-thread ${read ? "is-read" : ""} ${selected ? "is-selected" : ""}`}
     data-notif-id=${ids.join(",")}
@@ -179,8 +181,6 @@ function Thread({ group, update, selecting, selected, setSelected }) {
         href=${safeUrl(primary.prUrl)}
         target="_blank"
         rel="noopener noreferrer"
-        onClick=${markOpened}
-        onAuxClick=${markOpened}
         >${primary.prTitle || "Pull request"}</a
       >
       <div class="notif-thread-actions">
@@ -207,7 +207,6 @@ function Thread({ group, update, selecting, selected, setSelected }) {
           html`<${ActorGroup}
             key=${`${primary.prId || primary.id}:${actorGroup.actor}`}
             actorGroup=${actorGroup}
-            markOpened=${markOpened}
           />`,
       )}
     </div>
@@ -362,18 +361,18 @@ export function Notifications({ items, setItems, filter, setFilter }) {
               <button
                 disabled=${!selectedIds.length}
                 onClick=${() => {
-                update(selectedIds, { readAt: Date.now() });
-                finishSelection();
-              }}
+                  update(selectedIds, { readAt: Date.now() });
+                  finishSelection();
+                }}
               >
                 Mark read
               </button>
               <button
                 disabled=${!selectedIds.length}
                 onClick=${() => {
-                update(selectedIds, { readAt: null });
-                finishSelection();
-              }}
+                  update(selectedIds, { readAt: null });
+                  finishSelection();
+                }}
               >
                 Mark unread
               </button>
@@ -427,14 +426,14 @@ export function Notifications({ items, setItems, filter, setFilter }) {
         !visible.length &&
         html`<div class="notif-empty">
           ${
-          filter === "unread"
-            ? html`You're all caught up.<br /><span
-                  >New GitHub activity will appear here.</span
-                >`
-            : filter === "old"
-              ? "No old notifications."
-              : "No read notifications."
-        }
+            filter === "unread"
+              ? html`You're all caught up.<br /><span
+                    >New GitHub activity will appear here.</span
+                  >`
+              : filter === "old"
+                ? "No old notifications."
+                : "No read notifications."
+          }
         </div>`
       }
     </div>`;

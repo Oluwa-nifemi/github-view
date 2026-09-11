@@ -53,6 +53,8 @@ test("notification actors are resolved from comments, PRs, and timeline events",
           subject: {
             type: "PullRequest",
             url: "https://api.github.com/repos/ardoq/repo/pulls/1",
+            latest_comment_url:
+              "https://api.github.com/repos/ardoq/repo/issues/comments/42",
           },
         },
         {
@@ -65,8 +67,14 @@ test("notification actors are resolved from comments, PRs, and timeline events",
           },
         },
       ]);
-    if (path === "/repos/ardoq/repo/pulls/1")
-      return response({ user: { login: "pr-author" } });
+    if (path === "/repos/ardoq/repo/issues/comments/42")
+      return response({
+        id: 42,
+        user: { login: "commenter" },
+        body: "Mention body",
+        created_at: new Date(now - 2000).toISOString(),
+        html_url: "https://github.com/ardoq/repo/pull/1#issuecomment-42",
+      });
     if (path === "/repos/ardoq/repo/issues/2/timeline")
       return response([
         {
@@ -83,9 +91,28 @@ test("notification actors are resolved from comments, PRs, and timeline events",
   assert.deepEqual(
     result.extraNotifs.map(({ id, actor }) => ({ id, actor })),
     [
-      { id: "mention", actor: "pr-author" },
+      { id: "mention", actor: "commenter" },
       { id: "assign", actor: "assigner" },
     ],
+  );
+  assert.deepEqual(
+    result.extraNotifs.find((item) => item.id === "mention"),
+    {
+      id: "mention",
+      reason: "mention",
+      updated_at: new Date(now).toISOString(),
+      subject: {
+        type: "PullRequest",
+        url: "https://api.github.com/repos/ardoq/repo/pulls/1",
+        latest_comment_url:
+          "https://api.github.com/repos/ardoq/repo/issues/comments/42",
+      },
+      actor: "commenter",
+      commentId: "42",
+      eventAt: new Date(now - 2000).toISOString(),
+      preview: "Mention body",
+      commentUrl: "https://github.com/ardoq/repo/pull/1#issuecomment-42",
+    },
   );
 });
 

@@ -305,6 +305,50 @@ test("notification actor groups combine repeated comments without losing text", 
   );
 });
 
+test("empty bot review events are hidden while bot comments remain visible", () => {
+  const hiddenReview = {
+    id: "empty-review",
+    prId: "org/repo#1",
+    type: "new_review",
+    actor: "claude[bot]",
+    isBot: true,
+    preview: "",
+    createdAt: later,
+  };
+  const comment = {
+    id: "comment",
+    prId: "org/repo#1",
+    type: "comment_on_my_pr",
+    actor: "claude[bot]",
+    isBot: true,
+    preview: "A useful review comment",
+    createdAt: at,
+  };
+
+  assert.deepEqual(notificationGroups([hiddenReview, comment]), [[comment]]);
+});
+
+test("empty bot COMMENTED reviews do not create notifications", () => {
+  const old = { prs: { own: pr(4, "me") } };
+  const fresh = {
+    prs: {
+      own: {
+        ...pr(4, "me"),
+        reviews: [
+          {
+            user: "claude[bot]",
+            state: "COMMENTED",
+            submittedAt: later,
+            preview: "",
+          },
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(collectNotificationEvents(old, fresh, "me"), []);
+});
+
 test("bot comments on my PR need my attention", () => {
   assert.equal(
     notificationSection({
@@ -350,9 +394,10 @@ test("explicit notification username determines reply ownership", () => {
   );
 });
 
-test("a later mention in the same notification thread is new activity", () => {
+test("a merge timestamp does not recreate an old comment notification", () => {
   const mention = {
     id: "thread-1",
+    commentId: "comment-1",
     prId: "org/repo#1",
     reason: "mention",
     title: "PR",
@@ -366,8 +411,74 @@ test("a later mention in the same notification thread is new activity", () => {
     { prs: {}, mentions: [{ ...mention, updatedAt: later }] },
     "me",
   );
+  assert.deepEqual(events, []);
+});
+
+test("adding comment identity to a legacy snapshot does not recreate an old comment", () => {
+  const old = {
+    prs: {},
+    mentions: [
+      {
+        id: "thread-1",
+        prId: "org/repo#1",
+        reason: "mention",
+        updatedAt: later,
+      },
+    ],
+  };
+  const events = collectNotificationEvents(
+    old,
+    {
+      prs: {},
+      mentions: [
+        {
+          ...old.mentions[0],
+          commentId: "comment-1",
+          eventAt: at,
+          updatedAt: "2026-09-07T12:00:00Z",
+          preview: "Old comment",
+        },
+      ],
+    },
+    "me",
+  );
+
+  assert.deepEqual(events, []);
+});
+
+test("a new comment in the same notification thread is new activity", () => {
+  const old = {
+    prs: {},
+    mentions: [
+      {
+        id: "thread-1",
+        commentId: "comment-1",
+        prId: "org/repo#1",
+        reason: "mention",
+        updatedAt: at,
+      },
+    ],
+  };
+  const events = collectNotificationEvents(
+    old,
+    {
+      prs: {},
+      mentions: [
+        {
+          ...old.mentions[0],
+          commentId: "comment-2",
+          eventAt: later,
+          updatedAt: later,
+          preview: "New comment",
+        },
+      ],
+    },
+    "me",
+  );
+
   assert.equal(events.length, 1);
   assert.equal(events[0].createdAt, later);
+  assert.equal(events[0].preview, "New comment");
 });
 
 test("refresh repairs missing actors on saved GitHub notifications", () => {

@@ -11,19 +11,25 @@ export function parsePRFromNotification(notification) {
   return { repo, number: parseInt(match[2], 10) };
 }
 
-async function resolveActor(notification, token) {
+async function resolveContext(notification, token) {
   if (notification.subject?.latest_comment_url) {
     const comment = await ghJson(
       notification.subject.latest_comment_url,
       token,
     );
-    return comment.user?.login || null;
+    return {
+      actor: comment.user?.login || null,
+      commentId: comment.id == null ? null : String(comment.id),
+      eventAt: comment.created_at || null,
+      preview: comment.body || "",
+      commentUrl: comment.html_url || null,
+    };
   }
   const pr = parsePRFromNotification(notification);
-  if (!pr) return null;
+  if (!pr) return {};
   if (["mention", "comment", "team_mention"].includes(notification.reason)) {
     const pullRequest = await ghJson(notification.subject.url, token);
-    return pullRequest.user?.login || null;
+    return { actor: pullRequest.user?.login || null };
   }
   const events = await ghJson(
     `/repos/${pr.repo}/issues/${pr.number}/timeline?per_page=100`,
@@ -33,15 +39,16 @@ async function resolveActor(notification, token) {
     notification.reason === "assign"
       ? new Set(["assigned"])
       : new Set(["closed", "merged", "reopened"]);
-  return (
-    [...events]
-      .reverse()
-      .find(
-        (event) =>
-          eventTypes.has(event.event) &&
-          Date.parse(event.created_at) <= Date.parse(notification.updated_at),
-      )?.actor?.login || null
-  );
+  return {
+    actor:
+      [...events]
+        .reverse()
+        .find(
+          (event) =>
+            eventTypes.has(event.event) &&
+            Date.parse(event.created_at) <= Date.parse(notification.updated_at),
+        )?.actor?.login || null,
+  };
 }
 
 export async function fetchRecentNotifications(token) {
@@ -65,10 +72,12 @@ export async function fetchRecentNotifications(token) {
       ) && n.subject?.type === "PullRequest",
   );
   const enrichedExtraNotifs = await Promise.all(
-    extraNotifs.map(async (notification) => ({
-      ...notification,
-      actor: await resolveActor(notification, token).catch(() => null),
-    })),
+    extraNotifs.map(async (notification) => {
+      const context = await resolveContext(notification, token).catch(
+        () => ({}),
+      );
+      return { ...notification, ...context };
+    }),
   );
   return {
     notifications: recent.filter((n) =>
