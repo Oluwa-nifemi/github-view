@@ -10,6 +10,7 @@ import { buildSnapshot } from "../snapshot/build.js";
 import { ghJson } from "../github/client.js";
 import { session } from "../config.js";
 import { diff } from "../domain/activity.js";
+import { startRefreshScheduler } from "./refreshScheduler.js";
 import {
   collectNotificationEvents,
   repairNotificationActors,
@@ -196,7 +197,13 @@ export function useDashboard() {
   useEffect(() => {
     if (token) {
       refresh();
-      const timer = setInterval(refresh, 180000);
+      const stopScheduler = startRefreshScheduler(
+        refresh,
+        () =>
+          new Worker(new URL("../refresh.worker.js", import.meta.url), {
+            type: "module",
+          }),
+      );
       const visible = () => {
         if (
           document.visibilityState === "visible" &&
@@ -207,7 +214,7 @@ export function useDashboard() {
       };
       document.addEventListener("visibilitychange", visible);
       return () => {
-        clearInterval(timer);
+        stopScheduler();
         document.removeEventListener("visibilitychange", visible);
       };
     }

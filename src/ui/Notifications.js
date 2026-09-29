@@ -63,6 +63,28 @@ export function notificationGroups(items) {
   );
 }
 
+export function partitionNotificationGroups(groups) {
+  const sections = {
+    pinned: [],
+    "needs-you": [],
+    teammates: [],
+    activity: [],
+  };
+  for (const group of groups) {
+    if (group.some((notification) => notification.pinnedAt)) {
+      sections.pinned.push(group);
+      continue;
+    }
+    for (const section of ["needs-you", "teammates", "activity"]) {
+      const sectionItems = group.filter(
+        (notification) => notificationSection(notification) === section,
+      );
+      if (sectionItems.length) sections[section].push(sectionItems);
+    }
+  }
+  return sections;
+}
+
 export function notificationActorGroups(events) {
   const groups = new Map();
   for (const event of events) {
@@ -323,8 +345,9 @@ export function Notifications({ items, setItems, filter, setFilter }) {
   const selectedIds = selectedGroups.flatMap((group) =>
     group.map((notification) => notification.id),
   );
-  const sectionKeys = ["needs-you", "teammates", "activity"];
-  const labels = ["Needs you", "Teammates", "Activity"];
+  const sections = partitionNotificationGroups(visible);
+  const sectionKeys = ["pinned", "needs-you", "teammates", "activity"];
+  const labels = ["Pinned", "Needs you", "Teammates", "Activity"];
   const finishSelection = () => {
     setSelecting(false);
     setSelectedGroupKeys(new Set());
@@ -403,11 +426,7 @@ export function Notifications({ items, setItems, filter, setFilter }) {
     </div>
     <div class="notif-list" id="notif-list">
       ${sectionKeys.map((key, index) => {
-        const groups = notificationGroups(
-          visibleNotifications.filter(
-            (notification) => notificationSection(notification) === key,
-          ),
-        );
+        const groups = sections[key];
         return groups.length
           ? html`<${Section}
               key=${key}

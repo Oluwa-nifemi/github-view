@@ -16,11 +16,13 @@ const {
   notificationActorGroups,
   notificationSection,
   notificationGroups,
+  partitionNotificationGroups,
   unreadThreadCount,
 } = await import("../src/ui/Notifications.js");
 const { diff, hasActionableActivitySince } =
   await import("../src/domain/activity.js");
 const { normalize, read } = await import("../src/ui/state.js");
+const { startRefreshScheduler } = await import("../src/ui/refreshScheduler.js");
 session.USERNAME = "me";
 const at = "2026-09-07T10:00:00Z";
 const later = "2026-09-07T11:00:00Z";
@@ -28,6 +30,29 @@ const review = (state, submittedAt = at, user = "reviewer") => ({
   user,
   state,
   submittedAt,
+});
+
+test("background refresh uses a worker heartbeat", () => {
+  let listener;
+  let terminated = false;
+  let refreshes = 0;
+  const stop = startRefreshScheduler(
+    () => refreshes++,
+    () => ({
+      addEventListener: (type, callback) => {
+        assert.equal(type, "message");
+        listener = callback;
+      },
+      terminate: () => {
+        terminated = true;
+      },
+    }),
+  );
+
+  listener();
+  assert.equal(refreshes, 1);
+  stop();
+  assert.equal(terminated, true);
 });
 
 test("an existing PR is not new only because its section changed", () => {
@@ -270,6 +295,42 @@ test("notification grouping can split mixed PR activity by section", () => {
       .map((item) => item.id),
     ["activity"],
   );
+});
+
+test("pinned notification groups are removed from their original sections", () => {
+  const groups = notificationGroups([
+    {
+      id: "pinned",
+      prId: "org/repo#1",
+      type: "mentioned",
+      pinnedAt: Date.parse(later),
+      createdAt: later,
+    },
+    {
+      id: "same-thread",
+      prId: "org/repo#1",
+      type: "comment_on_watched_pr",
+      createdAt: at,
+    },
+    {
+      id: "regular",
+      prId: "org/repo#2",
+      type: "mentioned",
+      createdAt: at,
+    },
+  ]);
+
+  const sections = partitionNotificationGroups(groups);
+
+  assert.deepEqual(
+    sections.pinned.flat().map((item) => item.id),
+    ["pinned", "same-thread"],
+  );
+  assert.deepEqual(
+    sections["needs-you"].flat().map((item) => item.id),
+    ["regular"],
+  );
+  assert.deepEqual(sections.activity, []);
 });
 
 test("notification actor groups combine repeated comments without losing text", () => {
