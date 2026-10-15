@@ -262,6 +262,34 @@ test("notification badge excludes activity threads", () => {
   );
 });
 
+test("self-assignments stay in activity and do not increase the unread badge", () => {
+  const previousUsername = session.USERNAME;
+  session.USERNAME = "me";
+  try {
+    const assignment = {
+      id: "self-assignment",
+      prId: "org/repo#1",
+      type: "assigned",
+      actor: "Me",
+      preview: "Assigned to @me",
+      createdAt: later,
+      readAt: null,
+    };
+    assert.equal(notificationSection(assignment), "activity");
+    assert.equal(unreadThreadCount([assignment]), 0);
+    assert.equal(
+      notificationSection({ ...assignment, actor: "someone-else" }),
+      "needs-you",
+    );
+    assert.equal(
+      notificationSection({ ...assignment, actor: null }),
+      "needs-you",
+    );
+  } finally {
+    session.USERNAME = previousUsername;
+  }
+});
+
 test("notification grouping can split mixed PR activity by section", () => {
   const mixed = [
     {

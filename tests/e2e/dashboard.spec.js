@@ -3,6 +3,36 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
 const timestamp = new Date().toISOString();
+test("saved self-assignment appears in activity instead of needs you", async ({
+  page,
+}, testInfo) => {
+  await mockGitHub(page);
+  await ready(page);
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "gh_digest_notifications",
+      JSON.stringify([
+        {
+          id: "self-assignment",
+          key: "assigned:ardoq/example#99:self-assignment",
+          type: "assigned",
+          actor: "fixture-user",
+          prId: "ardoq/example#99",
+          prTitle: "Self-assigned task",
+          prUrl: "https://github.com/ardoq/example/pull/99",
+          preview: "Assigned to @fixture-user",
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    );
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(page.getByText("Needs you", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Activity", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("self-assignment.png") });
+});
+
 const issue = (number, author, title, repo = "ardoq/example") => ({
   number,
   title,

@@ -3,13 +3,19 @@ import { html, safeUrl, relativeTime } from "./common.js";
 import { session, config } from "../config.js";
 
 export function notificationSection(notification) {
+  const username = session.USERNAME.trim();
+  if (
+    username &&
+    notification.type === "assigned" &&
+    notification.actor?.toLowerCase() === username.toLowerCase()
+  )
+    return "activity";
   if (
     notification.onMyPR &&
     ["review_approved", "comment_on_my_pr"].includes(notification.type)
   )
     return "needs-you";
   if (notification.isBot) return "activity";
-  const username = session.USERNAME.trim();
   if (username) {
     const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (
