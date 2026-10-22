@@ -28,6 +28,6 @@ On first load, `buildSnapshot` can emit a primary-PR preview with `partial: true
 
 PR data includes identity/title/link, author/teammate membership, dates, reviews, comments, draft state, and section-specific CI/request/activity fields. Add normalized fields in the owning stage and increase snapshot version if existing cached entries would lack them.
 
-Local storage retains the existing `gh_*` keys. Global archive/delete, my-PR set-aside, pins, notes, filters, collapse state, and notification read/pin state are separate concepts. An archived PR resurfaces when its activity signature changes; deleted items stay hidden until restored.
+Local storage retains the existing `gh_*` keys. Global archive/delete, my-PR set-aside, pins, notes, filters, collapse state, and notification read/pin state are separate concepts. An archived PR resurfaces when its activity signature changes; deleted items stay hidden until restored. `src/ui/retainedPRs.js` keeps archived, deleted and set-aside PR details when search omits them. Their storage entries save PR details; older entries use the previous snapshot. Fresh GitHub data takes precedence.
 
 The pre-migration HTML and specification remain in Git history. `docs/audit.md` records the audit that motivated this split.

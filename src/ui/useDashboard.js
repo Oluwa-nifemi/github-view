@@ -11,6 +11,7 @@ import { ghJson } from "../github/client.js";
 import { session } from "../config.js";
 import { diff } from "../domain/activity.js";
 import { startRefreshScheduler } from "./refreshScheduler.js";
+import { retainSavedPRs } from "./retainedPRs.js";
 import {
   collectNotificationEvents,
   repairNotificationActors,
@@ -55,11 +56,11 @@ export function useDashboard() {
   const [teamOnly, setTeamOnlyState] = useState(
     () => localStorage.getItem("gh_digest_teammates") === "1",
   );
-  const current = useRef({ token, snapshot }),
+  const current = useRef({ token, snapshot, archived, stashed }),
     inflight = useRef(null),
     epoch = useRef(0),
     rateUntil = useRef(0);
-  current.current = { token, snapshot };
+  current.current = { token, snapshot, archived, stashed };
   function clearAccount(nextUsername) {
     setPreviewSnapshot(null);
     const oldUsername = localStorage.getItem("gh_username");
@@ -177,6 +178,13 @@ export function useDashboard() {
             ),
           ),
         );
+        if (sameAccount)
+          fresh.prs = retainSavedPRs(
+            fresh.prs,
+            previous?.prs,
+            current.current.archived,
+            current.current.stashed,
+          );
         write("gh_digest_last_snapshot", fresh);
         setSnapshot(fresh);
         setPreviewSnapshot(null);
@@ -249,7 +257,7 @@ export function useDashboard() {
       setStashed((items) => {
         const next = { ...items };
         if (next[pr.id]) delete next[pr.id];
-        else next[pr.id] = { archivedAt: new Date().toISOString() };
+        else next[pr.id] = { archivedAt: new Date().toISOString(), pr };
         return next;
       });
     if (type === "archive")
@@ -258,6 +266,7 @@ export function useDashboard() {
         [pr.id]: {
           archivedAt: new Date().toISOString(),
           signature: pr.updatedAt || null,
+          pr,
         },
       }));
     if (type === "delete")
@@ -267,6 +276,7 @@ export function useDashboard() {
           ...items[pr.id],
           deleted: true,
           deletedAt: new Date().toISOString(),
+          pr,
         },
       }));
     if (type === "restore")
@@ -297,7 +307,18 @@ export function useDashboard() {
   };
   return {
     token,
-    snapshot: snapshot || previewSnapshot,
+    snapshot:
+      snapshot || previewSnapshot
+        ? {
+            ...(snapshot || previewSnapshot),
+            prs: retainSavedPRs(
+              (snapshot || previewSnapshot).prs,
+              null,
+              archived,
+              stashed,
+            ),
+          }
+        : null,
     busy,
     error,
     settings,
