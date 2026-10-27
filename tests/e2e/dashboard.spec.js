@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
 const timestamp = new Date().toISOString();
+
 test("saved self-assignment appears in activity instead of needs you", async ({
   page,
 }, testInfo) => {
@@ -33,6 +34,42 @@ test("saved self-assignment appears in activity instead of needs you", async ({
   await page.screenshot({ path: testInfo.outputPath("self-assignment.png") });
 });
 
+test("saved repeated assignments show one useful notification", async ({
+  page,
+}, testInfo) => {
+  await mockGitHub(page);
+  await ready(page);
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "gh_digest_notifications",
+      JSON.stringify(
+        Array.from({ length: 7 }, (_, index) => ({
+          id: `assignment-${index}`,
+          key: `assigned:ardoq/ardoq-packages#37728:thread:${index}`,
+          type: "assigned",
+          actor: "Claudette2-0",
+          prId: "ardoq/ardoq-packages#37728",
+          prTitle: "AI-2080 Add model selector",
+          prUrl: "https://github.com/ardoq/ardoq-packages/pull/37728",
+          preview: "",
+          createdAt: new Date().toISOString(),
+        })),
+      ),
+    );
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(
+    page.getByRole("link", { name: "Assigned to you", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByText("Open notification", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("7 updates", { exact: true })).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("assignment-notification.png"),
+  });
+});
 const issue = (number, author, title, repo = "ardoq/example") => ({
   number,
   title,

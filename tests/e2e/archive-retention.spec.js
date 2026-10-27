@@ -4,6 +4,7 @@ test("archived and set-aside PRs survive empty searches and reloads", async ({
   page,
 }) => {
   let omitted = false;
+  let merged = false;
   let updatedAt = "2026-10-22T12:00:00Z";
   await page.addInitScript(() => {
     localStorage.setItem("gh_token", "synthetic-test-token");
@@ -57,6 +58,8 @@ test("archived and set-aside PRs survive empty searches and reloads", async ({
       data = { users: [], teams: [] };
     else if (/\/pulls\/\d+$/.test(path))
       data = {
+        state: merged ? "closed" : "open",
+        merged,
         head: { sha: "fixture" },
         requested_reviewers: [],
         requested_teams: [],
@@ -94,4 +97,12 @@ test("archived and set-aside PRs survive empty searches and reloads", async ({
   await expect(refresh).toBeEnabled();
   await expect(page.locator("#section-3b")).toContainText("Archived fixture");
   await expect(stashed).toBeVisible();
+  merged = true;
+  omitted = true;
+  await refresh.click();
+  await expect(refresh).toBeEnabled();
+  await expect(stashed).toHaveCount(0);
+  await page.reload();
+  await expect(refresh).toBeEnabled();
+  await expect(stashed).toHaveCount(0);
 });

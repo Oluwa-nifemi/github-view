@@ -8,7 +8,7 @@ Read `github-digest.map.md` to locate the owning module before editing.
 - Use the module map and `rg` to locate code, then read targeted ranges. Do not load large files wholesale.
 - Update `github-digest.map.md` after structural changes so module ownership and data contracts stay accurate.
 - `npm ci`, then `npm run dev`. Production: `npm run build && npm start`.
-- After code changes, reload the running app. For the installed macOS app, run `npm run startup:install` so it rebuilds and restarts the LaunchAgent.
+- After every code change, do this without being asked: run `npm test` and `npm run startup:install` with escalation (`require_escalated`). Tests open a local port. `startup:install` rebuilds and restarts the LaunchAgent. Then tell the user to reload the browser.
 - Keep feature changes inside their owning modules. Do not rebuild a large shared controller or add a second UI framework.
 - UI components live in `src/ui`; API access in `src/github`; PR enrichment in `src/snapshot`; review/activity rules in `src/domain`.
 - `buildSnapshot` returns a complete snapshot. Failed required requests reject the refresh so the last good snapshot stays visible. Do not silently turn failed requests into empty lists or successful CI results.

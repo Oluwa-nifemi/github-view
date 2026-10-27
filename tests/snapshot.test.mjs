@@ -43,6 +43,39 @@ test("my PRs are recovered from any search source", () => {
   );
 });
 
+test("assigned agent PRs belong to me and take priority over review requests", () => {
+  for (const author of [
+    "Claudette2-0",
+    "aiops-optimus",
+    "aiops-optimus[bot]",
+    "TEAMAI-ORION",
+    "TEAMAI-ORION[bot]",
+  ]) {
+    const assigned = { ...item(1, author), assignees: [{ login: "ME" }] };
+    const unassigned = item(2, author);
+    const assignedElsewhere = {
+      ...item(3, author),
+      assignees: [{ login: "teammate" }],
+    };
+    const human = { ...item(4, "teammate"), assignees: [{ login: "me" }] };
+    const reviewItems = [assigned, unassigned, assignedElsewhere, human];
+    const mine = collectMyItems({
+      username: "me",
+      agentBotLogin: "Claudette2-0",
+      sources: [reviewItems, [assigned]],
+    });
+
+    assert.deepEqual(mine, [assigned]);
+    assert.deepEqual(
+      excludeOwnedReviewItems(
+        reviewItems,
+        new Map(mine.map((pr) => [`ardoq/example#${pr.number}`, pr])),
+      ),
+      [unassigned, assignedElsewhere, human],
+    );
+  }
+});
+
 test("the signed-in user is not their own teammate", async () => {
   session.USERNAME = "Me";
   values.set(

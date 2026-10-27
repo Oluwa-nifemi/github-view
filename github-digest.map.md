@@ -28,6 +28,8 @@ On first load, `buildSnapshot` can emit a primary-PR preview with `partial: true
 
 PR data includes identity/title/link, author/teammate membership, dates, reviews, comments, draft state, and section-specific CI/request/activity fields. Add normalized fields in the owning stage and increase snapshot version if existing cached entries would lack them.
 
-Local storage retains the existing `gh_*` keys. Global archive/delete, my-PR set-aside, pins, notes, filters, collapse state, and notification read/pin state are separate concepts. An archived PR resurfaces when its activity signature changes; deleted items stay hidden until restored. `src/ui/retainedPRs.js` keeps archived, deleted and set-aside PR details when search omits them. Their storage entries save PR details; older entries use the previous snapshot. Fresh GitHub data takes precedence.
+Local storage retains the existing `gh_*` keys. Global archive/delete, my-PR set-aside, pins, notes, filters, collapse state, and notification read/pin state are separate concepts. An archived PR resurfaces when its activity signature changes; deleted items stay hidden until restored. `src/ui/retainedPRs.js` keeps archived, deleted and set-aside PR details when search omits them. Set-aside PRs absent from search require a successful GitHub state check before retention; closed or merged PRs leave the list. Archived and deleted details remain saved. Their storage entries save PR details; older entries use the previous snapshot. Fresh GitHub data takes precedence.
+
+`PRList.js` owns editable ticket-group labels. `gh_digest_ticket_names` maps ticket IDs to local display names, independently of grouping and collapse keys. Settings exports include these names; PR and Jira titles are unchanged.
 
 The pre-migration HTML and specification remain in Git history. `docs/audit.md` records the audit that motivated this split.
