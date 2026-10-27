@@ -8,6 +8,8 @@ export function collectNotificationEvents(
   const items = [];
   const existingKeys = new Set(items.map((n) => n.key));
   const oldPRs = oldSnap.prs || {};
+  const cutoff = Date.parse(oldSnap.timestamp) - 600000;
+  const isNew = (at) => !(cutoff > 0) || !at || Date.parse(at) > cutoff;
 
   for (const [prId, pr] of Object.entries(newSnap.prs)) {
     const old = oldPRs[prId];
@@ -23,11 +25,10 @@ export function collectNotificationEvents(
           review.user &&
           (review.user === config.AGENT_BOT_LOGIN ||
             review.user.endsWith("[bot]"));
-        if (review.state === "COMMENTED" && !isBot) continue;
-        if (review.state === "COMMENTED" && isBot && !review.preview?.trim())
-          continue;
+        if (review.state === "COMMENTED" && !review.preview?.trim()) continue;
         const rKey = `${review.user}:${review.submittedAt}`;
         if (oldReviewKeys.has(rKey)) continue;
+        if (!isNew(review.submittedAt)) continue;
         let type;
         if (review.state === "APPROVED") type = "review_approved";
         else if (review.state === "CHANGES_REQUESTED")
@@ -62,6 +63,7 @@ export function collectNotificationEvents(
         if (comment.user === username) continue;
         const cKey = `${comment.user}:${comment.createdAt}`;
         if (oldCommentKeys.has(cKey)) continue;
+        if (!isNew(comment.createdAt)) continue;
         const isBot =
           comment.user &&
           (comment.user === config.AGENT_BOT_LOGIN ||
@@ -110,6 +112,7 @@ export function collectNotificationEvents(
           continue;
         const cKey = `${comment.user}:${comment.createdAt}`;
         if (oldCommentKeys.has(cKey)) continue;
+        if (!isNew(comment.createdAt)) continue;
         const isBot =
           comment.user &&
           (comment.user === config.AGENT_BOT_LOGIN ||
@@ -150,22 +153,33 @@ export function collectNotificationEvents(
   const extraIdentity = (mention) =>
     mention.commentId
       ? `${mention.id}:comment:${mention.commentId}`
-      : `${mention.id}:${mention.updatedAt}`;
+      : `${mention.id}:${mention.eventAt || mention.updatedAt}`;
   const oldExtraById = new Map(
     (oldSnap.mentions || []).map((mention) => [mention.id, mention]),
   );
   const oldExtraIds = new Set((oldSnap.mentions || []).map(extraIdentity));
+  const oldExtraCommentIds = new Set(
+    (oldSnap.mentions || [])
+      .filter((mention) => mention.commentId)
+      .map((mention) => mention.commentId),
+  );
   for (const mention of newSnap.mentions || []) {
+    if (!isNew(mention.eventAt || mention.updatedAt)) continue;
     const oldMention = oldExtraById.get(mention.id);
     if (
-      mention.commentId &&
+      (mention.commentId || mention.eventAt) &&
       oldMention &&
       !oldMention.commentId &&
       mention.eventAt &&
       Date.parse(mention.eventAt) <= Date.parse(oldMention.updatedAt)
     )
       continue;
-    if (oldExtraIds.has(extraIdentity(mention))) continue;
+    if (
+      mention.commentId
+        ? oldExtraCommentIds.has(mention.commentId)
+        : oldExtraIds.has(extraIdentity(mention))
+    )
+      continue;
 
     // Map GitHub reason to our event type
     let type;
@@ -188,15 +202,19 @@ export function collectNotificationEvents(
     }
 
     // For mention/comment/team_mention, skip PRs already tracked by the snapshot
-    // (they get their own events from the diff). For state_change and assign,
-    // always show — even if the PR was tracked, the state change is new info.
+    // (they get their own events from the diff), keep comment-backed mentions:
+    // snapshot diffs miss review-thread summaries and top-level PR comments.
+    // For state_change and assign, always show — even if the PR was tracked,
+    // the state change is new info.
     if (
       ["mentioned", "team_mentioned"].includes(type) &&
-      newSnap.prs[mention.prId]
+      newSnap.prs[mention.prId] &&
+      !(mention.commentId && mention.preview?.trim())
     )
       continue;
 
-    const eventIdentity = mention.commentId || mention.updatedAt;
+    const eventIdentity =
+      mention.commentId || mention.eventAt || mention.updatedAt;
     const key = `${type}:${mention.prId}:${mention.id}:${eventIdentity}`;
     if (existingKeys.has(key)) continue;
     items.unshift({

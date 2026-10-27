@@ -14,29 +14,41 @@ const response = (data, headers = {}, status = 200) =>
     headers,
   });
 
-test("notifications fetch only one page of at most 100 within six hours", async (t) => {
+test("notifications paginate through threads within 36 hours", async (t) => {
   const now = Date.now();
   t.mock.method(Date, "now", () => now);
   let calls = 0;
+  const since = new Date(now - 129600000).toISOString();
   t.mock.method(globalThis, "fetch", async (url) => {
     calls++;
     const parsed = new URL(url);
     assert.equal(parsed.searchParams.get("per_page"), "100");
-    assert.equal(Date.parse(parsed.searchParams.get("since")), now - 21600000);
+    assert.equal(Date.parse(parsed.searchParams.get("since")), now - 129600000);
+    if (parsed.searchParams.get("page") !== "2")
+      return response(
+        Array.from({ length: 100 }, (_, id) => ({
+          id: String(id),
+          reason: id === 0 ? "mention" : "review_requested",
+          subject: { type: "PullRequest" },
+          updated_at: new Date(now).toISOString(),
+        })),
+        {
+          link: `<https://api.github.com/notifications?since=${encodeURIComponent(since)}&per_page=100&page=2>; rel="next"`,
+        },
+      );
     return response(
-      Array.from({ length: 110 }, (_, id) => ({
-        id,
+      Array.from({ length: 20 }, (_, id) => ({
+        id: String(100 + id),
         reason: id === 0 ? "mention" : "review_requested",
         subject: { type: "PullRequest" },
-        updated_at: new Date(now - (id === 1 ? 21600001 : 0)).toISOString(),
+        updated_at: new Date(now - (id === 1 ? 129600001 : 0)).toISOString(),
       })),
-      { link: '<https://api.github.com/notifications?page=2>; rel="next"' },
     );
   });
   const result = await fetchRecentNotifications("notification-fixture");
-  assert.equal(calls, 1);
-  assert.equal(result.extraNotifs.length, 1);
-  assert.equal(result.notifications.length, 98);
+  assert.equal(calls, 2);
+  assert.equal(result.extraNotifs.length, 2);
+  assert.equal(result.notifications.length, 117);
 });
 
 test("notification actors are resolved from comments, PRs, and timeline events", async (t) => {
@@ -64,6 +76,8 @@ test("notification actors are resolved from comments, PRs, and timeline events",
           subject: {
             type: "PullRequest",
             url: "https://api.github.com/repos/ardoq/repo/pulls/2",
+            latest_comment_url:
+              "https://api.github.com/repos/ardoq/repo/issues/comments/unrelated",
           },
         },
       ]);
@@ -80,6 +94,7 @@ test("notification actors are resolved from comments, PRs, and timeline events",
         {
           event: "assigned",
           actor: { login: "assigner" },
+          assignee: { login: "me" },
           created_at: new Date(now - 1000).toISOString(),
         },
       ]);
@@ -95,6 +110,9 @@ test("notification actors are resolved from comments, PRs, and timeline events",
       { id: "assign", actor: "assigner" },
     ],
   );
+  const assignment = result.extraNotifs.find((item) => item.id === "assign");
+  assert.equal(assignment.eventAt, new Date(now - 1000).toISOString());
+  assert.equal(assignment.preview, "Assigned to @me");
   assert.deepEqual(
     result.extraNotifs.find((item) => item.id === "mention"),
     {

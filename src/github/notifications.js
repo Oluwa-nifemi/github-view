@@ -12,7 +12,10 @@ export function parsePRFromNotification(notification) {
 }
 
 async function resolveContext(notification, token) {
-  if (notification.subject?.latest_comment_url) {
+  if (
+    ["mention", "comment", "team_mention"].includes(notification.reason) &&
+    notification.subject?.latest_comment_url
+  ) {
     const comment = await ghJson(
       notification.subject.latest_comment_url,
       token,
@@ -39,32 +42,36 @@ async function resolveContext(notification, token) {
     notification.reason === "assign"
       ? new Set(["assigned"])
       : new Set(["closed", "merged", "reopened"]);
+  const event = [...events]
+    .reverse()
+    .find(
+      (event) =>
+        eventTypes.has(event.event) &&
+        Date.parse(event.created_at) <= Date.parse(notification.updated_at),
+    );
   return {
-    actor:
-      [...events]
-        .reverse()
-        .find(
-          (event) =>
-            eventTypes.has(event.event) &&
-            Date.parse(event.created_at) <= Date.parse(notification.updated_at),
-        )?.actor?.login || null,
+    actor: event?.actor?.login || null,
+    eventAt: event?.created_at || null,
+    preview: event
+      ? event.event === "assigned"
+        ? `Assigned to @${event.assignee?.login || "you"}`
+        : `${event.event[0].toUpperCase()}${event.event.slice(1)} the pull request`
+      : "",
   };
 }
 
 export async function fetchRecentNotifications(token) {
-  const cutoff = Date.now() - 6 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 36 * 60 * 60 * 1000;
   const since = new Date(cutoff).toISOString();
   const list = await ghJson(
     `/notifications?all=true&since=${encodeURIComponent(since)}&per_page=100`,
     token,
-    { paginate: false },
+    { paginate: true },
   );
-  const recent = list
-    .slice(0, 100)
-    .filter(
-      (n) =>
-        Date.parse(n.updated_at) >= cutoff && n.subject?.type === "PullRequest",
-    );
+  const recent = list.filter(
+    (n) =>
+      Date.parse(n.updated_at) >= cutoff && n.subject?.type === "PullRequest",
+  );
   const extraNotifs = recent.filter(
     (n) =>
       ["mention", "comment", "state_change", "assign", "team_mention"].includes(

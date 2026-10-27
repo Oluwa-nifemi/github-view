@@ -111,12 +111,14 @@ export function notificationActorGroups(events) {
 }
 
 export const unreadThreadCount = (items) =>
-  notificationGroups(items).filter((group) =>
-    group.some(
-      (notification) =>
-        !notification.readAt &&
-        notificationSection(notification) !== "activity",
-    ),
+  notificationGroups(items).filter(
+    (group) =>
+      !group.some((notification) => notification.pinnedAt) &&
+      group.some(
+        (notification) =>
+          !notification.readAt &&
+          notificationSection(notification) !== "activity",
+      ),
   ).length;
 
 function ActionTag({ type }) {
@@ -150,38 +152,70 @@ function SelectionBox({ checked, indeterminate = false, label, onChange }) {
   </label>`;
 }
 
-function CommentList({ events }) {
+function CommentList({ events, update }) {
+  const emptyTypes = new Set();
+  const visible = events.filter((entry) => {
+    if (entry.preview?.trim()) return true;
+    if (emptyTypes.has(entry.type)) return false;
+    emptyTypes.add(entry.type);
+    return true;
+  });
+  const summaries = {
+    assigned: "Assigned to you",
+    review_approved: "Approved the pull request",
+    review_changes_requested: "Requested changes",
+    pr_closed: "Pull request state changed",
+    mentioned: "Mentioned you — view on GitHub",
+    team_mentioned: "Mentioned your team — view on GitHub",
+  };
   return html`<div class="notif-comments">
-    ${events.map(
+    ${visible.map(
       (entry) =>
         html`<a
           class="notif-comment"
           href=${safeUrl(entry.commentUrl || entry.prUrl)}
           target="_blank"
           rel="noopener noreferrer"
+          onClick=${() =>
+            update(
+              entry.preview?.trim()
+                ? [entry.id]
+                : events
+                    .filter(
+                      (event) =>
+                        !event.preview?.trim() && event.type === entry.type,
+                    )
+                    .map((event) => event.id),
+              { readAt: Date.now() },
+            )}
         >
-          ${entry.preview || "Open notification"}
+          ${entry.preview?.trim() || summaries[entry.type] || "View activity on GitHub"}
         </a>`,
     )}
   </div>`;
 }
 
-function ActorGroup({ actorGroup }) {
+function ActorGroup({ actorGroup, update }) {
   const types = [...new Set(actorGroup.events.map((event) => event.type))];
+  const updateCount =
+    actorGroup.events.filter((event) => event.preview?.trim()).length +
+    new Set(
+      actorGroup.events
+        .filter((event) => !event.preview?.trim())
+        .map((event) => event.type),
+    ).size;
   return html`<div class="notif-actor-group">
     <div class="notif-actor-line">
       <span class="notif-actor">${actorGroup.actor}</span>
       ${actorGroup.isBot && html`<span class="bot-label">Bot</span>`}
       ${types.slice(0, 2).map((type) => html`<${ActionTag} type=${type} />`)}
       ${
-        actorGroup.events.length > 1 &&
-        html`<span class="notif-actor-count"
-          >${actorGroup.events.length} updates</span
-        >`
+        updateCount > 1 &&
+        html`<span class="notif-actor-count">${updateCount} updates</span>`
       }
       <time class="notif-time">${relativeTime(actorGroup.latestAt)}</time>
     </div>
-    <${CommentList} events=${actorGroup.events} />
+    <${CommentList} events=${actorGroup.events} update=${update} />
   </div>`;
 }
 
@@ -191,7 +225,7 @@ function Thread({ group, update, selecting, selected, setSelected }) {
   const read = group.every((notification) => notification.readAt);
   const pinned = group.some((notification) => notification.pinnedAt);
   return html`<article
-    class=${`pr-thread ${read ? "is-read" : ""} ${selected ? "is-selected" : ""}`}
+    class=${`pr-thread ${read ? "is-read" : ""} ${selected ? "is-selected" : ""} ${pinned ? "is-pinned" : ""}`}
     data-notif-id=${ids.join(",")}
   >
     <div class="notif-thread-topline">
@@ -234,6 +268,7 @@ function Thread({ group, update, selecting, selected, setSelected }) {
           html`<${ActorGroup}
             key=${`${primary.prId || primary.id}:${actorGroup.actor}`}
             actorGroup=${actorGroup}
+            update=${update}
           />`,
       )}
     </div>
@@ -260,38 +295,41 @@ function Section({
     class=${`notif-section ${collapsed ? "collapsed" : ""}`}
     id=${`notif-${sectionKey}`}
   >
-    <header class="notif-section-header">
-      ${
-        selecting &&
-        html`<${SelectionBox}
-          checked=${selected === groupKeys.length}
-          indeterminate=${selected > 0 && selected < groupKeys.length}
-          label=${`Select all ${label} groups`}
-          onChange=${(checked) => setGroupsSelected(groupKeys, checked)}
-        />`
-      }
-      <button
-        type="button"
-        class="notif-section-toggle"
-        aria-expanded=${!collapsed}
-        aria-controls=${`notif-${sectionKey}-items`}
-        onClick=${() => setCollapsed(!collapsed)}
-      >
-        <span aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
-        <span class="notif-section-title">${label}</span>
-        <span class="notif-section-count">${groups.length}</span>
-        ${unread > 0 && html`<span class="notif-section-summary">${unread} unread</span>`}
-      </button>
-      ${
-        unread > 0 &&
-        html`<button
-          class="notif-section-read"
-          onClick=${() => update(ids, { readAt: Date.now() })}
+    ${
+      sectionKey !== "pinned" &&
+      html`<header class="notif-section-header">
+        ${
+          selecting &&
+          html`<${SelectionBox}
+            checked=${selected === groupKeys.length}
+            indeterminate=${selected > 0 && selected < groupKeys.length}
+            label=${`Select all ${label} groups`}
+            onChange=${(checked) => setGroupsSelected(groupKeys, checked)}
+          />`
+        }
+        <button
+          type="button"
+          class="notif-section-toggle"
+          aria-expanded=${!collapsed}
+          aria-controls=${`notif-${sectionKey}-items`}
+          onClick=${() => setCollapsed(!collapsed)}
         >
-          Mark section read
-        </button>`
-      }
-    </header>
+          <span aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+          <span class="notif-section-title">${label}</span>
+          <span class="notif-section-count">${groups.length}</span>
+          ${unread > 0 && html`<span class="notif-section-summary">${unread} unread</span>`}
+        </button>
+        ${
+          unread > 0 &&
+          html`<button
+            class="notif-section-read"
+            onClick=${() => update(ids, { readAt: Date.now() })}
+          >
+            Mark section read
+          </button>`
+        }
+      </header>`
+    }
     <div class="notif-cards" id=${`notif-${sectionKey}-items`}>
       ${groups.map((group) => {
         const key = group[0].prId || group[0].id;

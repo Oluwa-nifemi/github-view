@@ -478,6 +478,30 @@ test("empty bot COMMENTED reviews do not create notifications", () => {
   assert.deepEqual(collectNotificationEvents(old, fresh, "me"), []);
 });
 
+test("comment-only reviews with a body notify on my PR", () => {
+  const old = { prs: { own: pr(4, "me") } };
+  const fresh = {
+    prs: {
+      own: {
+        ...pr(4, "me"),
+        reviews: [
+          {
+            user: "reviewer",
+            state: "COMMENTED",
+            submittedAt: later,
+            preview: "Question about the schema",
+          },
+        ],
+      },
+    },
+  };
+  const events = collectNotificationEvents(old, fresh, "me");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, "new_review");
+  assert.equal(events[0].actor, "reviewer");
+  assert.equal(events[0].preview, "Question about the schema");
+});
+
 test("bot comments on my PR need my attention", () => {
   assert.equal(
     notificationSection({
@@ -608,6 +632,66 @@ test("a new comment in the same notification thread is new activity", () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].createdAt, later);
   assert.equal(events[0].preview, "New comment");
+});
+
+test("commented mention events survive tracked snapshots and re-renders", () => {
+  const mention = {
+    id: "thread-1",
+    commentId: "comment-1",
+    prId: "org/repo#1",
+    reason: "comment",
+    title: "PR",
+    url: "https://github.com/org/repo/pull/1",
+    actor: "reviewer",
+    eventAt: later,
+    preview: "Review summary",
+    commentUrl: "https://github.com/org/repo/pull/1#issuecomment-1",
+    updatedAt: later,
+  };
+  const old = { prs: { "org/repo#1": pr(4, "me") } };
+  const fresh = {
+    prs: { "org/repo#1": pr(4, "me") },
+    mentions: [mention],
+  };
+  const events = collectNotificationEvents(old, fresh, "me");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, "mentioned");
+  assert.equal(events[0].preview, "Review summary");
+  assert.deepEqual(collectNotificationEvents(fresh, fresh, "me"), []);
+});
+
+test("assignment thread updates do not recreate an assignment", () => {
+  const mention = {
+    id: "assignment",
+    prId: "org/repo#1",
+    reason: "assign",
+    eventAt: at,
+    updatedAt: at,
+  };
+  const old = { prs: {}, mentions: [mention] };
+  assert.deepEqual(
+    collectNotificationEvents(
+      old,
+      { prs: {}, mentions: [{ ...mention, updatedAt: later }] },
+      "me",
+    ),
+    [],
+  );
+  const events = collectNotificationEvents(
+    old,
+    { prs: {}, mentions: [{ ...mention, eventAt: later, updatedAt: later }] },
+    "me",
+  );
+  assert.equal(events.length, 1);
+  assert.equal(events[0].createdAt, later);
+  assert.deepEqual(
+    collectNotificationEvents(
+      { prs: {}, mentions: [{ ...mention, eventAt: null, updatedAt: later }] },
+      { prs: {}, mentions: [{ ...mention, updatedAt: later }] },
+      "me",
+    ),
+    [],
+  );
 });
 
 test("refresh repairs missing actors on saved GitHub notifications", () => {
