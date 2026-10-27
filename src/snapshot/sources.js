@@ -4,13 +4,20 @@ const sameLogin = (left, right) =>
   !!left && !!right && left.toLowerCase() === right.toLowerCase();
 
 export function collectMyItems({ username, agentBotLogin, sources }) {
+  const agentLogins = [
+    agentBotLogin,
+    "aiops-optimus",
+    "aiops-optimus[bot]",
+    "teamai-orion",
+    "teamai-orion[bot]",
+  ];
   const items = new Map();
   for (const item of sources.flat()) {
     const repo = repoFromIssue(item);
     if (!repo) continue;
     const authoredByUser = sameLogin(item.user?.login, username);
     const assignedAgentPR =
-      sameLogin(item.user?.login, agentBotLogin) &&
+      agentLogins.some((login) => sameLogin(item.user?.login, login)) &&
       (item.assignees || []).some((assignee) =>
         sameLogin(assignee.login, username),
       );

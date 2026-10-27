@@ -11,7 +11,7 @@ import { ghJson } from "../github/client.js";
 import { session } from "../config.js";
 import { diff } from "../domain/activity.js";
 import { startRefreshScheduler } from "./refreshScheduler.js";
-import { retainSavedPRs } from "./retainedPRs.js";
+import { retainOpenSavedPRs, retainSavedPRs } from "./retainedPRs.js";
 import {
   collectNotificationEvents,
   repairNotificationActors,
@@ -156,6 +156,17 @@ export function useDashboard() {
           if (generation === epoch.current && !previous)
             setPreviewSnapshot(preview);
         });
+        if (sameAccount)
+          fresh.prs = await retainOpenSavedPRs(
+            fresh.prs,
+            previous?.prs,
+            current.current.archived,
+            current.current.stashed,
+            (id) => {
+              const [repo, number] = id.split("#");
+              return ghJson(`/repos/${repo}/pulls/${number}`, active.token);
+            },
+          );
         if (generation !== epoch.current) return;
         setPreviousTimestamp(previous?.timestamp || null);
         const events =
@@ -178,13 +189,6 @@ export function useDashboard() {
             ),
           ),
         );
-        if (sameAccount)
-          fresh.prs = retainSavedPRs(
-            fresh.prs,
-            previous?.prs,
-            current.current.archived,
-            current.current.stashed,
-          );
         write("gh_digest_last_snapshot", fresh);
         setSnapshot(fresh);
         setPreviewSnapshot(null);
@@ -315,7 +319,7 @@ export function useDashboard() {
               (snapshot || previewSnapshot).prs,
               null,
               archived,
-              stashed,
+              {},
             ),
           }
         : null,

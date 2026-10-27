@@ -1,8 +1,66 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { retainSavedPRs } from "../src/ui/retainedPRs.js";
+import { retainSavedPRs, retainOpenSavedPRs } from "../src/ui/retainedPRs.js";
 
 const pr = { id: "ardoq/ardoq-api#21057", title: "Saved PR" };
+
+test("set-aside PRs survive search omissions only while still open", async () => {
+  for (const detail of [
+    { state: "open" },
+    { state: "closed" },
+    { state: "closed", merged: true },
+  ]) {
+    let calls = 0;
+    const retained = await retainOpenSavedPRs(
+      {},
+      null,
+      {},
+      { [pr.id]: { pr } },
+      async (id) => {
+        assert.equal(id, pr.id);
+        calls++;
+        return detail;
+      },
+    );
+    assert.equal(calls, 1);
+    assert.deepEqual(retained, detail.state === "open" ? { [pr.id]: pr } : {});
+  }
+});
+
+test("saved-state lookup failures reject rather than hide PRs", async () => {
+  await assert.rejects(
+    retainOpenSavedPRs({}, { [pr.id]: pr }, {}, { [pr.id]: {} }, async () => {
+      throw new Error("GitHub unavailable");
+    }),
+    /GitHub unavailable/,
+  );
+});
+
+test("fresh and archived PRs do not need saved-state lookups", async () => {
+  const loadPR = () => {
+    throw new Error("Unexpected lookup");
+  };
+  assert.deepEqual(
+    await retainOpenSavedPRs(
+      { [pr.id]: pr },
+      null,
+      {},
+      { [pr.id]: {} },
+      loadPR,
+    ),
+    { [pr.id]: pr },
+  );
+  assert.deepEqual(
+    await retainOpenSavedPRs(
+      {},
+      null,
+      { [pr.id]: { pr } },
+      { [pr.id]: {} },
+      loadPR,
+    ),
+    { [pr.id]: pr },
+  );
+});
 
 test("archive, deleted and set-aside PRs survive repeated search omissions", () => {
   for (const [archived, stashed] of [
