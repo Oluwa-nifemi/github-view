@@ -308,6 +308,11 @@
 .pr-thread.is-read {
   opacity: 0.72;
 }
+.pr-thread.is-pinned,
+.pr-thread.is-pinned:hover,
+.pr-thread.is-pinned:focus-within {
+  border-color: color-mix(in srgb, var(--yellow) 48%, var(--border));
+}
 .pr-thread.is-read .notif-action-tag {
   opacity: 0.7;
 }

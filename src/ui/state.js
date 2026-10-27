@@ -97,6 +97,10 @@ export function normalize(key, value, fallback) {
       return Object.fromEntries(
         Object.entries(value).filter(([, entry]) => object(entry)),
       );
+    if (key === "gh_digest_ticket_names")
+      return Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => typeof entry === "string"),
+      );
     if (key === "gh_digest_notes")
       return Object.fromEntries(
         Object.entries(value).filter(

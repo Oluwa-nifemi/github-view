@@ -2,7 +2,75 @@ import { html, safeUrl } from "./common.js";
 import { PRCard } from "./PRCard.js";
 import { classifyMyPR, isHandledByReview } from "../domain/reviews.js";
 import { session, config } from "../config.js";
-import { toggle } from "./state.js";
+import { toggle, useStored } from "./state.js";
+import { useState, useRef, useEffect } from "preact/hooks";
+
+function TicketGroupLabel({ ticket, name, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const input = useRef();
+  const rename = useRef();
+  const restoreFocus = useRef(false);
+  useEffect(() => {
+    if (editing) input.current.focus();
+    else if (restoreFocus.current) {
+      rename.current.focus();
+      restoreFocus.current = false;
+    }
+  }, [editing]);
+  const close = () => {
+    restoreFocus.current = true;
+    setEditing(false);
+  };
+  const save = () => {
+    onSave(draft.trim());
+    close();
+  };
+  return html`<span class="ticket-group-label">
+    ${
+      editing
+        ? html`<span
+            class="ticket-group-editor"
+            onClick=${(e) => e.stopPropagation()}
+          >
+            <input
+              ref=${input}
+              aria-label=${`Name for ${ticket} group`}
+              value=${draft}
+              onInput=${(e) => setDraft(e.currentTarget.value)}
+              onKeyDown=${(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter" || e.key === "Escape") {
+                  e.preventDefault();
+                  if (e.key === "Enter") save();
+                  else close();
+                }
+              }}
+            />
+            <button type="button" onClick=${save}>Save</button>
+            <button type="button" onClick=${close}>Cancel</button>
+          </span>`
+        : html`<span class="ticket-group-name" title=${ticket}
+            >${name || ticket}</span
+          >`
+    }
+    <button
+      ref=${rename}
+      type="button"
+      class="ticket-group-rename"
+      hidden=${editing}
+      aria-label=${`Rename ${ticket} group`}
+      title="Rename group"
+      onClick=${(e) => {
+        e.stopPropagation();
+        setDraft(name || ticket);
+        setEditing(true);
+      }}
+    >
+      ✎
+    </button>
+  </span>`;
+}
 
 const sections = [
   ["priority", "3", "⭐", "High Priority"],
@@ -40,6 +108,7 @@ export function PRList({
   setSections,
   setAuthors,
 }) {
+  const [ticketNames, setTicketNames] = useStored("gh_digest_ticket_names", {});
   const buckets = Object.fromEntries(sections.map(([key]) => [key, []]));
   for (const pr of Object.values(prs)) {
     if (
@@ -154,24 +223,106 @@ export function PRList({
     }
     if (key === "mine") {
       const active = list.filter((pr) => !state.stashed[pr.id]);
-      content = html`${Object.entries({
+      const tickets = new Map();
+      for (const pr of active) {
+        const ticket = pr.title?.match(/\b[A-Z][A-Z0-9]*-\d+\b/)?.[0];
+        if (!ticket) continue;
+        if (!tickets.has(ticket)) tickets.set(ticket, []);
+        tickets.get(ticket).push(pr);
+      }
+      const groups = [...tickets.entries()].filter(([, prs]) => prs.length > 1);
+      const groupedIds = new Set(
+        groups.flatMap(([, prs]) => prs.map((pr) => pr.id)),
+      );
+      content = html`${groups.map(([ticket, prs]) => {
+        const groupKey = `jira:${ticket}`;
+        return html`<details
+          key=${ticket}
+          class="author-group"
+          data-ticket=${ticket}
+          open=${!state.collapsedAuthors.includes(groupKey)}
+          onToggle=${(e) => {
+            if (
+              e.currentTarget.open === state.collapsedAuthors.includes(groupKey)
+            )
+              setAuthors(toggle(state.collapsedAuthors, groupKey));
+          }}
+        >
+          <summary>
+            <${TicketGroupLabel}
+              ticket=${ticket}
+              name=${ticketNames[ticket]}
+              onSave=${(name) =>
+                setTicketNames((previous) => {
+                  const next = { ...previous };
+                  if (name && name !== ticket) next[ticket] = name;
+                  else delete next[ticket];
+                  return next;
+                })}
+            />
+            <span class="count">${prs.length}</span>
+          </summary>
+          <div class="author-group-body">${cards(prs)}</div>
+        </details>`;
+      })}${Object.entries({
         ci_failing: "❌ CI failing",
         changes_requested: "💬 Changes requested",
         approved: "✅ Approved — ready to merge",
         awaiting: "⏳ Awaiting review",
       }).map(([status, title]) => {
         const items = active
-          .filter((pr) => classifyMyPR(pr) === status)
+          .filter((pr) => !groupedIds.has(pr.id) && classifyMyPR(pr) === status)
           .sort(latestFirst);
-        return html`<div
-          class="subgroup"
+        const groupKey = `my-status:${status}`;
+        return html`<details
+          key=${status}
+          class="subgroup my-archive-group"
           data-status=${status}
           style=${items.length ? undefined : { display: "none" }}
+          open=${!state.collapsedAuthors.includes(groupKey)}
+          onToggle=${(e) => {
+            if (
+              e.currentTarget.open === state.collapsedAuthors.includes(groupKey)
+            )
+              setAuthors(toggle(state.collapsedAuthors, groupKey));
+          }}
         >
-          <h3>${title}</h3>
+          <summary>${title} <span class="count">${items.length}</span></summary>
           <div class="subgroup-body">${cards(items)}</div>
-        </div>`;
+        </details>`;
       })}${archiveGroup("🗄 Set aside", list.filter((pr) => state.stashed[pr.id]).sort(latestFirst))}`;
+    }
+    if (key === "teammates") {
+      const repoMap = new Map();
+      for (const pr of list) {
+        if (!repoMap.has(pr.repo)) repoMap.set(pr.repo, []);
+        repoMap.get(pr.repo).push(pr);
+      }
+      content = [...repoMap.entries()]
+        .sort(
+          (a, b) => new Date(b[1][0].updatedAt) - new Date(a[1][0].updatedAt),
+        )
+        .map(([repo, prs]) => {
+          const groupKey = `repo:${repo}`;
+          return html`<details
+            class="author-group"
+            data-repo=${repo}
+            open=${!state.collapsedAuthors.includes(groupKey)}
+            onToggle=${(e) => {
+              if (
+                e.currentTarget.open ===
+                state.collapsedAuthors.includes(groupKey)
+              )
+                setAuthors(toggle(state.collapsedAuthors, groupKey));
+            }}
+          >
+            <summary>
+              ${repo.split("/").pop()}
+              <span class="count">${prs.length}</span>
+            </summary>
+            <div class="author-group-body">${cards(prs)}</div>
+          </details>`;
+        });
     }
     const collapsed = !!state.sections[key];
     const toggleSection = () =>

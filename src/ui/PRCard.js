@@ -67,6 +67,20 @@ function ReviewChips({ pr }) {
     indicators.push(
       indicator("changes", "⚠ changes requested", "You requested changes"),
     );
+  if (
+    !own &&
+    session.USERNAME &&
+    ((pr.comments || []).some(
+      (comment) =>
+        comment.user?.toLowerCase() === session.USERNAME.toLowerCase(),
+    ) ||
+      (pr.reviews || []).some(
+        (review) =>
+          review.user?.toLowerCase() === session.USERNAME.toLowerCase() &&
+          (review.state === "COMMENTED" || review.preview?.trim()),
+      ))
+  )
+    indicators.push(indicator("yours", "you commented", "You commented"));
   if (pr.isDraft) indicators.push(indicator("", "DRAFT", "Draft PR"));
   if (approvals.length)
     indicators.push(

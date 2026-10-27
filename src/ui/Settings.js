@@ -11,6 +11,7 @@ const transferable = [
   "gh_digest_archived",
   "gh_digest_archived_mine",
   "gh_digest_notes",
+  "gh_digest_ticket_names",
   "gh_digest_promoted",
   "gh_digest_collapsed_authors",
   "gh_digest_collapsed_sections",
