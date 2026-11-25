@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const statePath = resolve(process.env.GH_DIGEST_STATE || `${scriptDir}/state.json`);
-const org = process.env.GH_DIGEST_ORG || 'ardoq';
+const org = (process.env.GH_DIGEST_ORG || '').trim();
+const orgFilter = org ? ` org:${org}` : '';
 const ghBinary = process.env.GH_BIN || 'gh';
 const notifierBinary = process.env.TERMINAL_NOTIFIER_BIN || 'terminal-notifier';
 const historyMs = 30 * 24 * 60 * 60 * 1000;
@@ -73,7 +74,7 @@ function formatEventTime(timestamp) {
 }
 
 function directReviewRequests(login) {
-  const query = `query { search(query: "is:pr is:open org:${org} review-requested:${login}", type: ISSUE, first: 100) { nodes { ... on PullRequest { id number title url author { login } updatedAt isDraft repository { nameWithOwner } } } } }`;
+  const query = `query { search(query: "is:pr is:open${orgFilter} review-requested:${login}", type: ISSUE, first: 100) { nodes { ... on PullRequest { id number title url author { login } updatedAt isDraft repository { nameWithOwner } } } } }`;
   const data = ghJson(['graphql', '-f', `query=${query}`]);
   return data.data.search.nodes.filter(pr => !pr.isDraft).map(pr => ({
     key: `review-requested:${pr.id}`,
@@ -116,7 +117,7 @@ function isBot(login) {
 
 function myOpenPullRequests(login) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const query = `query { search(query: "is:pr is:open org:${org} author:${login} updated:>=${since}", type: ISSUE, first: 100) { nodes { ... on PullRequest { number title url repository { nameWithOwner } } } } }`;
+  const query = `query { search(query: "is:pr is:open${orgFilter} author:${login} updated:>=${since}", type: ISSUE, first: 100) { nodes { ... on PullRequest { number title url repository { nameWithOwner } } } } }`;
   const data = ghJson(['graphql', '-f', `query=${query}`]);
   return data.data.search.nodes;
 }

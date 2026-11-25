@@ -6,7 +6,7 @@ export function parsePRFromNotification(notification) {
   const match = url.match(/\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)/);
   if (!match) return null;
   const repo = match[1];
-  if (!repo.startsWith(`${config.ORG}/`)) return null;
+  if (config.ORG && !repo.startsWith(`${config.ORG}/`)) return null;
   if (config.IGNORED_REPOS.has(repo)) return null;
   return { repo, number: parseInt(match[2], 10) };
 }

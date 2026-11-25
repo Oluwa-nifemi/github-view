@@ -38,7 +38,7 @@ test("PR cards identify your comments without a timestamp", async ({
         ${cases.map(
           (data) =>
             html`<${PRCard}
-              pr=${{ author: "author", title: data.id, section: 3, url: "https://github.com/ardoq/example/pull/1", ...data }}
+              pr=${{ author: "author", title: data.id, section: 3, url: "https://github.com/acme/example/pull/1", ...data }}
               state=${state}
               action=${() => {}}
             />`,

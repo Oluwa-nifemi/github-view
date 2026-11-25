@@ -67,6 +67,5 @@ The legacy file exports credential-free preferences and optional notification
 history for import into the new browser origin.
 
 Local startup uses macOS launchd and a loopback-only static server. Unit and
-fixture-based browser tests cover the resulting behavior. The real CLI token
-authenticated successfully as Oluwa-nifemi, but Ardoq's SAML enforcement rejected
-organization access. A complete live Ardoq refresh still requires SSO authorization.
+fixture-based browser tests cover the resulting behavior. Organizations with
+SAML enforcement require SSO-authorized tokens for live organization refreshes.

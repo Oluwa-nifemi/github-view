@@ -19,9 +19,11 @@ Run one check:
 node .gh-digest/watch.mjs
 ```
 
-The sample LaunchAgent runs this check every fifteen minutes. Its source
-definition is `com.oluwanifemi.github-digest.plist`; its absolute paths must match
-the Mac where it is installed. It is separate from the dashboard login service.
+The sample LaunchAgent runs this check every fifteen minutes. Copy
+`com.github-view.watcher.plist.example` to `~/Library/LaunchAgents/com.github-view.watcher.plist`
+and replace the placeholder paths (`/path/to/node`, `/path/to/github-view`, `/Users/you`)
+to match your machine. Optionally set `GH_DIGEST_ORG` in `EnvironmentVariables` to
+limit queries to one GitHub organization. It is separate from the dashboard login service.
 
 The watcher stores its deduplication state in `.gh-digest/state.json`. Git ignores
 that file.

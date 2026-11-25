@@ -24,7 +24,7 @@ Read `github-digest.map.md` to locate the owning module before editing.
 - `npm test`: domain, API, watcher and static-server checks.
 - `npm run test:e2e`: synthetic GitHub responses through the real UI and snapshot builder.
 - `npm run build`: production build.
-- `npm run test:live`: isolated browser with the existing `gh` credential. Ardoq requires SSO authorization; do not add scopes to work around SSO.
+- `npm run test:live`: isolated browser with the existing `gh` credential. Organizations with SAML SSO require SSO authorization; do not add scopes to work around SSO.
 - Format changed files with `npm run format` and inspect browser screenshots after UI changes.
 
 `AGENTS.md` is a symlink to this file. Keep the map and README current when changing module ownership or startup.

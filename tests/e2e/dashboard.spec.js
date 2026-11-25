@@ -15,12 +15,12 @@ test("saved self-assignment appears in activity instead of needs you", async ({
       JSON.stringify([
         {
           id: "self-assignment",
-          key: "assigned:ardoq/example#99:self-assignment",
+          key: "assigned:acme/example#99:self-assignment",
           type: "assigned",
           actor: "fixture-user",
-          prId: "ardoq/example#99",
+          prId: "acme/example#99",
           prTitle: "Self-assigned task",
-          prUrl: "https://github.com/ardoq/example/pull/99",
+          prUrl: "https://github.com/acme/example/pull/99",
           preview: "Assigned to @fixture-user",
           createdAt: new Date().toISOString(),
         },
@@ -45,12 +45,12 @@ test("saved repeated assignments show one useful notification", async ({
       JSON.stringify(
         Array.from({ length: 7 }, (_, index) => ({
           id: `assignment-${index}`,
-          key: `assigned:ardoq/ardoq-packages#37728:thread:${index}`,
+          key: `assigned:acme/packages#37728:thread:${index}`,
           type: "assigned",
-          actor: "Claudette2-0",
-          prId: "ardoq/ardoq-packages#37728",
+          actor: "agent-bot",
+          prId: "acme/packages#37728",
           prTitle: "AI-2080 Add model selector",
-          prUrl: "https://github.com/ardoq/ardoq-packages/pull/37728",
+          prUrl: "https://github.com/acme/packages/pull/37728",
           preview: "",
           createdAt: new Date().toISOString(),
         })),
@@ -70,7 +70,7 @@ test("saved repeated assignments show one useful notification", async ({
     path: testInfo.outputPath("assignment-notification.png"),
   });
 });
-const issue = (number, author, title, repo = "ardoq/example") => ({
+const issue = (number, author, title, repo = "acme/example") => ({
   number,
   title,
   user: { login: author },
@@ -86,7 +86,7 @@ const mine = issue(
   2,
   "fixture-user",
   "Improve synthetic dashboard accessibility",
-  "ardoq/frontend",
+  "acme/frontend",
 );
 
 async function mockGitHub(
@@ -214,7 +214,7 @@ test("shows primary PRs before notification history completes without caching pa
   });
   await page.goto("/");
   try {
-    await expect(card(page, "ardoq/example#1")).toBeVisible();
+    await expect(card(page, "acme/example#1")).toBeVisible();
     await expect(page.locator("#last-refresh")).toHaveText(
       "Loading remaining activity…",
     );
@@ -243,7 +243,7 @@ test("connects, refreshes successfully, and disconnects", async ({ page }) => {
   await expect(page.locator("#summary")).toContainText("since last refresh");
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.locator("#summary")).toContainText("since last refresh");
-  await expect(card(page, "ardoq/example#1")).toBeVisible();
+  await expect(card(page, "acme/example#1")).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
@@ -260,7 +260,7 @@ test("persists notes and moves cards through pin, archive, delete, restore and s
 }) => {
   const errors = await mockGitHub(page);
   await ready(page);
-  const requestedCard = card(page, "ardoq/example#1");
+  const requestedCard = card(page, "acme/example#1");
   await requestedCard.getByRole("button", { name: "Edit note" }).click();
   await requestedCard
     .getByLabel("PR note")
@@ -292,7 +292,7 @@ test("persists notes and moves cards through pin, archive, delete, restore and s
     .getByRole("button", { name: "Restore", exact: true })
     .click();
   await expect(section(page, "Team Requests")).toContainText(requested.title);
-  const mineCard = card(page, "ardoq/frontend#2");
+  const mineCard = card(page, "acme/frontend#2");
   await expand(page, "Your Open PRs");
   await mineCard.getByRole("button", { name: "Set aside for later" }).click();
   await expect(mineCard.locator("xpath=ancestor::details")).toContainText(
@@ -341,7 +341,7 @@ test("retains the complete cached snapshot when a CI enrichment request fails", 
   expect(
     await page.evaluate(() => localStorage.getItem("gh_digest_last_snapshot")),
   ).toBe(previous);
-  await expect(card(page, "ardoq/example#1")).toBeVisible();
+  await expect(card(page, "acme/example#1")).toBeVisible();
   await expect(page.locator("#summary")).toContainText("since last refresh");
 });
 
@@ -384,7 +384,7 @@ test("exports and imports notes without exporting or replacing credentials", asy
     localStorage.setItem(
       "gh_digest_notes",
       JSON.stringify({
-        "ardoq/example#1": { text: "Portable synthetic note" },
+        "acme/example#1": { text: "Portable synthetic note" },
       }),
     ),
   );
@@ -395,13 +395,13 @@ test("exports and imports notes without exporting or replacing credentials", asy
     .getByRole("button", { name: "Export settings", exact: true })
     .click();
   const exported = await downloadJSON(await downloading);
-  expect(exported.settings.gh_digest_notes["ardoq/example#1"].text).toBe(
+  expect(exported.settings.gh_digest_notes["acme/example#1"].text).toBe(
     "Portable synthetic note",
   );
   expect(exported.settings).not.toHaveProperty("gh_token");
   expect(exported.settings).not.toHaveProperty("gh_digest_last_snapshot");
   expect(JSON.stringify(exported)).not.toContain("synthetic-test-token");
-  exported.settings.gh_digest_notes["ardoq/example#1"].text =
+  exported.settings.gh_digest_notes["acme/example#1"].text =
     "Imported synthetic note";
   exported.settings.gh_token = "must-not-replace-token";
   await page.locator("input[type=file]").setInputFiles({
@@ -409,7 +409,7 @@ test("exports and imports notes without exporting or replacing credentials", asy
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(exported)),
   });
-  await expect(card(page, "ardoq/example#1")).toContainText(
+  await expect(card(page, "acme/example#1")).toContainText(
     "Imported synthetic note",
   );
   expect(await page.evaluate(() => localStorage.getItem("gh_token"))).toBe(
@@ -425,7 +425,7 @@ test("legacy file URL exports intact notes while omitting credentials and malfor
     localStorage.setItem("gh_token", "private-synthetic-legacy-token");
     localStorage.setItem(
       "gh_digest_notes",
-      JSON.stringify({ "ardoq/example#1": { text: "Legacy synthetic note" } }),
+      JSON.stringify({ "acme/example#1": { text: "Legacy synthetic note" } }),
     );
     localStorage.setItem("gh_digest_promoted", "{malformed");
   });
@@ -434,7 +434,7 @@ test("legacy file URL exports intact notes while omitting credentials and malfor
     .getByRole("button", { name: "Export settings", exact: true })
     .click();
   const exported = await downloadJSON(await downloading);
-  expect(exported.settings.gh_digest_notes["ardoq/example#1"].text).toBe(
+  expect(exported.settings.gh_digest_notes["acme/example#1"].text).toBe(
     "Legacy synthetic note",
   );
   expect(exported.settings).not.toHaveProperty("gh_token");
@@ -476,15 +476,27 @@ test("filters authors and repositories, collapses sections, and saves settings",
   await mockGitHub(page);
   await ready(page);
   await page.getByRole("button", { name: "outside-user", exact: true }).click();
-  await expect(card(page, "ardoq/frontend#2")).toHaveCount(0);
+  await expect(card(page, "acme/frontend#2")).toHaveCount(0);
   await page.getByRole("button", { name: "Clear", exact: true }).click();
-  await page.locator('#repo-chips [data-repo="ardoq/frontend"]').click();
-  await expect(card(page, "ardoq/example#1")).toHaveCount(0);
+  await page.locator('#repo-chips [data-repo="acme/frontend"]').click();
+  await expect(card(page, "acme/example#1")).toHaveCount(0);
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await page.getByRole("button", { name: /Team Requests/ }).click();
-  await expect(card(page, "ardoq/example#1")).toBeHidden();
+  await expect(card(page, "acme/example#1")).toBeHidden();
   await page.getByRole("button", { name: /Team Requests/ }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("GitHub organization", { exact: true }).fill("acme");
+  await page.locator("#org-save").click();
+  await page.getByLabel("Add team", { exact: true }).fill("team-alpha");
+  await page.locator("#team-add").click();
+  await expect(page.locator("#teams-tags")).toContainText("team-alpha");
+  await page
+    .getByLabel("Add ignored repository", { exact: true })
+    .fill("acme/ignored-repo");
+  await page.locator("#ignored-repo-add").click();
+  await expect(page.locator("#ignored-repos-tags")).toContainText(
+    "acme/ignored-repo",
+  );
   await page
     .getByLabel("Add extra teammate", { exact: true })
     .fill("another-user");
@@ -492,14 +504,26 @@ test("filters authors and repositories, collapses sections, and saves settings",
   await expect(page.locator("#extra-teammates-tags")).toContainText(
     "another-user",
   );
+  await page.getByLabel("Agent bot login", { exact: true }).fill("agent-bot");
+  await page.locator("#agent-bot-save").click();
   await page.getByLabel("Job name pattern").fill("optional-check");
   await page.getByRole("button", { name: "Add rule", exact: true }).click();
   await expect(page.locator("#ignore-rules")).toContainText("optional-check");
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByLabel("GitHub organization", { exact: true }),
+  ).toHaveValue("acme");
+  await expect(page.locator("#teams-tags")).toContainText("team-alpha");
+  await expect(page.locator("#ignored-repos-tags")).toContainText(
+    "acme/ignored-repo",
+  );
   await expect(page.locator("#extra-teammates-tags")).toContainText(
     "another-user",
+  );
+  await expect(page.getByLabel("Agent bot login", { exact: true })).toHaveValue(
+    "agent-bot",
   );
   await expect(page.getByRole("dialog")).toContainText("optional-check");
 });
@@ -519,9 +543,9 @@ test("notification read and pin states survive reload", async ({
             key: "fixture-event",
             type: "mentioned",
             actor: "team-user",
-            prId: "ardoq/example#1",
+            prId: "acme/example#1",
             prTitle: "Synthetic mention",
-            prUrl: "https://github.com/ardoq/example/pull/1",
+            prUrl: "https://github.com/acme/example/pull/1",
             createdAt: timestamp,
             preview: "Please review this change",
             readAt: null,
@@ -572,9 +596,9 @@ test("opening notification links preserves unread state", async ({ page }) => {
     const base = {
       type: "mentioned",
       actor: "team-user",
-      prId: "ardoq/example#1",
+      prId: "acme/example#1",
       prTitle: "Grouped activity",
-      prUrl: "https://github.com/ardoq/example/pull/1",
+      prUrl: "https://github.com/acme/example/pull/1",
     };
     localStorage.setItem(
       "gh_digest_notifications",
@@ -680,9 +704,9 @@ test("notifications hide selection until group bulk mode is enabled", async ({
           id: "needs-1",
           type: "mentioned",
           actor: "team-user",
-          prId: "ardoq/example#1",
+          prId: "acme/example#1",
           prTitle: "First grouped PR",
-          prUrl: "https://github.com/ardoq/example/pull/1",
+          prUrl: "https://github.com/acme/example/pull/1",
           preview: "First notification",
           createdAt: now,
         },
@@ -690,9 +714,9 @@ test("notifications hide selection until group bulk mode is enabled", async ({
           id: "needs-2",
           type: "assigned",
           actor: "team-user",
-          prId: "ardoq/example#1",
+          prId: "acme/example#1",
           prTitle: "First grouped PR",
-          prUrl: "https://github.com/ardoq/example/pull/1",
+          prUrl: "https://github.com/acme/example/pull/1",
           preview: "Second notification",
           createdAt: now,
         },
@@ -701,9 +725,9 @@ test("notifications hide selection until group bulk mode is enabled", async ({
           type: "comment_on_watched_pr",
           actor: "outside-user",
           prAuthor: "outside-author",
-          prId: "ardoq/example#1",
+          prId: "acme/example#1",
           prTitle: "First grouped PR",
-          prUrl: "https://github.com/ardoq/example/pull/1",
+          prUrl: "https://github.com/acme/example/pull/1",
           preview: "Background notification",
           createdAt: now,
         },
@@ -711,9 +735,9 @@ test("notifications hide selection until group bulk mode is enabled", async ({
           id: "needs-3",
           type: "mentioned",
           actor: "team-user",
-          prId: "ardoq/example#2",
+          prId: "acme/example#2",
           prTitle: "Second grouped PR",
-          prUrl: "https://github.com/ardoq/example/pull/2",
+          prUrl: "https://github.com/acme/example/pull/2",
           preview: "Third notification",
           createdAt: now,
         },

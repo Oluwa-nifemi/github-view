@@ -114,7 +114,7 @@ export function PRList({
     if (
       !pr ||
       typeof pr.id !== "string" ||
-      !pr.repo?.startsWith(`${config.ORG}/`) ||
+      (config.ORG && !pr.repo?.startsWith(`${config.ORG}/`)) ||
       config.IGNORED_REPOS.has(pr.repo)
     )
       continue;
