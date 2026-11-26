@@ -17,17 +17,17 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 **PR dashboard.**
 
-<!-- Add a screenshot or screen recording of the PR dashboard here -->
+![PR dashboard showing High Priority, Your Open PRs, Team Requests, Team Handled, Engaged and Teammates' Open PRs](docs/demo/pr-dashboard.png)
 
 **Notifications triage.**
 
-<!-- Add a screenshot or screen recording of the notifications view here -->
+![Notifications view showing mention, reply, changes requested and assignment events](docs/demo/notifications.png)
 
 **Settings.**
 
 Configure your organization, teams, ignored repositories, teammates, agent bot, and CI ignore rules without touching code.
 
-<!-- Add a screenshot or screen recording of the settings modal here -->
+![Settings modal showing Workspace, Teammates, Automation and CI, and Data and Backup groups](docs/demo/settings.png)
 
 ## Quick start
 
