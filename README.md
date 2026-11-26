@@ -69,7 +69,18 @@ git clone https://github.com/Oluwa-nifemi/github-view.git
 docker compose up -d --build
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173) and paste your token. The container comes back after a reboot (`restart: unless-stopped`) and keeps your data, because all state lives in your browser. Update it later with `git pull && docker compose up -d --build`, stop it with `docker compose down`.
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173) and paste your token. Your data stays across restarts, because all state lives in your browser. Update it later with `git pull && docker compose up -d --build`, stop it with `docker compose down`.
+
+#### Start automatically
+
+The compose file sets `restart: unless-stopped`, so the container comes back whenever the Docker engine starts: after a reboot, after Docker Desktop restarts, and after a crash. One run of `docker compose up -d` is enough; you do not need it again.
+
+Containers cannot start while the Docker engine is stopped, so also let Docker start by itself:
+
+- **Docker Desktop:** Settings → General → enable **Start Docker Desktop when you sign in**.
+- **Linux:** `sudo systemctl enable --now docker`.
+
+`docker compose stop` marks the container as deliberately stopped; it then stays down until you run `docker compose up -d` again. Use `docker compose ps` to check its state.
 
 Without Compose:
 
@@ -79,16 +90,6 @@ docker run --rm -p 127.0.0.1:4173:4173 github-view
 ```
 
 The image builds the app and serves it with no runtime dependencies, because `scripts/serve.mjs` uses only Node built-ins. Both commands publish the port on `127.0.0.1` only, so the dashboard is not reachable from your network. Set `PORT` and `HOST` to listen elsewhere — the same variables work for `npm start`.
-
-### Run automatically on macOS
-
-To keep the server running in the background whenever you log in:
-
-```sh
-npm run startup:install
-```
-
-The installer installs dependencies, builds the app, and registers a macOS LaunchAgent. No Docker or terminal window is needed afterward. It starts the local server only — not browser windows or desktop notifications. See [docs/startup.md](docs/startup.md) for status and removal commands.
 
 ### What to connect
 
