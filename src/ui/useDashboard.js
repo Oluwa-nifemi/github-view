@@ -157,7 +157,7 @@ export function useDashboard() {
     if (inflight.current) {
       if (inflight.current.generation === epoch.current)
         return inflight.current.promise;
-      await inflight.current.promise;
+      await inflight.current.promise.catch(() => {});
       return refresh();
     }
     if (Date.now() < rateUntil.current) return;
@@ -222,8 +222,7 @@ export function useDashboard() {
         }
       } finally {
         if (generation === epoch.current) setBusy(false);
-        if (inflight.current?.generation === generation)
-          inflight.current = null;
+        if (inflight.current?.promise === promise) inflight.current = null;
       }
     })();
     inflight.current = { promise, generation };
@@ -256,7 +255,7 @@ export function useDashboard() {
   }, [token]);
   async function saveSettings(apply) {
     epoch.current++;
-    if (inflight.current) await inflight.current.promise;
+    if (inflight.current) await inflight.current.promise.catch(() => {});
     try {
       apply();
     } catch (error) {

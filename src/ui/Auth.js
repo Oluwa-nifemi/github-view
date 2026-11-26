@@ -6,6 +6,8 @@ export function Auth({ connect, busy, error }) {
   const [token, setToken] = useState("");
   const [org, setOrg] = useState(config.ORG);
   const [teams, setTeams] = useState(config.TEAMS.join(", "));
+  const [formError, setFormError] = useState("");
+  const shownError = formError || error;
   return html`<div id="setup">
     <h2>GitHub Digest — Setup</h2>
     <p>
@@ -36,13 +38,31 @@ export function Auth({ connect, busy, error }) {
     <form
       onSubmit=${(event) => {
         event.preventDefault();
-        if (!token.trim()) return;
+        if (!token.trim()) {
+          setFormError("Enter a GitHub token.");
+          return;
+        }
+        const nextOrg = org.trim();
+        if (nextOrg && !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(nextOrg)) {
+          setFormError("Enter a valid GitHub organization name.");
+          return;
+        }
         const parsedTeams = teams
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean);
+        const invalidTeam = parsedTeams.find(
+          (t) => !/^[a-z0-9][a-z0-9-_]*$/i.test(t),
+        );
+        if (invalidTeam) {
+          setFormError(
+            `Use the team slug only: "${invalidTeam.split("/").pop()}", not "${invalidTeam}".`,
+          );
+          return;
+        }
+        setFormError("");
         connect(token.trim(), {
-          org: org.trim(),
+          org: nextOrg,
           teams: parsedTeams,
         });
       }}
@@ -79,7 +99,7 @@ export function Auth({ connect, busy, error }) {
             <input
               id="setup-teams-input"
               aria-label="GitHub teams"
-              placeholder="e.g. frontend, platform"
+              placeholder="Team slugs, e.g. frontend, platform"
               autocomplete="off"
               spellcheck="false"
               value=${teams}
@@ -98,8 +118,8 @@ export function Auth({ connect, busy, error }) {
         </button>
       </div>
     </form>
-    <div id="token-error" class="error" role="alert" hidden=${!error}>
-      ${error}
+    <div id="token-error" class="error" role="alert" hidden=${!shownError}>
+      ${shownError}
     </div>
   </div>`;
 }
