@@ -15,37 +15,17 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 ## See it in action
 
-**PR dashboard.** High Priority and Your Open PRs on the left, the rest of the team activity on the right.
+**PR dashboard.** High Priority, Your Open PRs grouped by ticket and CI state, team requests, team handled, engaged, and teammates' open PRs.
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/demo/pr-dashboard.png"><img src="docs/demo/pr-dashboard-a.png" alt="PR dashboard showing High Priority and Your Open PRs grouped by ticket and CI state"></a>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/demo/pr-dashboard.png"><img src="docs/demo/pr-dashboard-b.png" alt="PR dashboard showing Team Requests, Team Handled, Engaged and Teammates' Open PRs"></a>
-    </td>
-  </tr>
-</table>
+<img src="docs/demo/pr-dashboard.png" width="830" alt="PR dashboard showing High Priority, Your Open PRs, Team Requests, Team Handled, Engaged and Teammates' Open PRs">
 
 **Notifications triage.**
 
-![Notifications view showing mention, reply, changes requested and assignment events](docs/demo/notifications.png)
+<img src="docs/demo/notifications.png" width="830" alt="Notifications view showing mention, reply, changes requested and assignment events">
 
-**Settings.** Workspace and teammates on the left, automation, CI filters, and backup on the right.
+**Settings.** Configure your organization, teams, ignored repositories, teammates, agent bot, and CI ignore rules without touching code.
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/demo/settings.png"><img src="docs/demo/settings-a.png" alt="Settings showing the Workspace and Teammates groups"></a>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/demo/settings.png"><img src="docs/demo/settings-b.png" alt="Settings showing Automation and CI and Data and Backup groups"></a>
-    </td>
-  </tr>
-</table>
-
-Click any image for the full-size capture.
+<img src="docs/demo/settings.png" width="660" alt="Settings modal showing the Workspace, Teammates, Automation and CI, and Data and Backup groups">
 
 ## Quick start
 
