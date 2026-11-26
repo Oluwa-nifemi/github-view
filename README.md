@@ -15,17 +15,27 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 ## See it in action
 
-**PR dashboard.** High Priority, Your Open PRs grouped by ticket and CI state, team requests, team handled, engaged, and teammates' open PRs.
+**PR dashboard.** High Priority and Your Open PRs grouped by ticket and CI state on the left; team requests, team handled, engaged, and teammates' open PRs on the right.
 
-<img src="docs/demo/pr-dashboard.png" width="830" alt="PR dashboard showing High Priority, Your Open PRs, Team Requests, Team Handled, Engaged and Teammates' Open PRs">
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/demo/pr-dashboard-a.png" width="400" alt="PR dashboard showing High Priority and Your Open PRs"></td>
+    <td width="50%" valign="top"><img src="docs/demo/pr-dashboard-b.png" width="400" alt="PR dashboard showing Team Requests, Team Handled, Engaged and Teammates' Open PRs"></td>
+  </tr>
+</table>
 
 **Notifications triage.**
 
 <img src="docs/demo/notifications.png" width="830" alt="Notifications view showing mention, reply, changes requested and assignment events">
 
-**Settings.** Configure your organization, teams, ignored repositories, teammates, agent bot, and CI ignore rules without touching code.
+**Settings.** Workspace and teammates on the left; automation, CI filters, and backup on the right.
 
-<img src="docs/demo/settings.png" width="660" alt="Settings modal showing the Workspace, Teammates, Automation and CI, and Data and Backup groups">
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/demo/settings-a.png" width="400" alt="Settings showing the Workspace and Teammates groups"></td>
+    <td width="50%" valign="top"><img src="docs/demo/settings-b.png" width="400" alt="Settings showing the Automation and CI and Data and Backup groups"></td>
+  </tr>
+</table>
 
 ## Quick start
 
