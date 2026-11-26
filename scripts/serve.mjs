@@ -73,8 +73,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
     console.error(`Cannot start GitHub View: ${error.message}`);
     process.exitCode = 1;
   });
-  server.listen(4173, "127.0.0.1", () =>
-    console.log("GitHub View: http://127.0.0.1:4173"),
+  const host = process.env.HOST || "127.0.0.1";
+  const port = Number(process.env.PORT) || 4173;
+  server.listen(port, host, () =>
+    console.log(`GitHub View: http://${host}:${port}`),
   );
   for (const signal of ["SIGINT", "SIGTERM"])
     process.on(signal, () => server.close());

@@ -1,0 +1,7 @@
+services:
+  github-view:
+    build: .
+    image: github-view:latest
+    ports:
+      - "127.0.0.1:4173:4173"
+    restart: unless-stopped

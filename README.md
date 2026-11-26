@@ -52,6 +52,26 @@ Requires Node 22.12+ and npm.
 
 Leave Organization and Teams blank to include pull requests from all accessible repositories. You can change your workspace scope and preferences at any time from **Settings**.
 
+### Run with Docker
+
+Docker is the shortest cross-platform path: no Node install, no login service, works on macOS, Linux, and Windows.
+
+```sh
+git clone https://github.com/Oluwa-nifemi/github-view.git
+docker compose up -d --build
+```
+
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173) and paste your token. The container comes back after a reboot (`restart: unless-stopped`) and keeps your data, because all state lives in your browser. Update it later with `git pull && docker compose up -d --build`, stop it with `docker compose down`.
+
+Without Compose:
+
+```sh
+docker build -t github-view .
+docker run --rm -p 127.0.0.1:4173:4173 github-view
+```
+
+The image builds the app and serves it with no runtime dependencies, because `scripts/serve.mjs` uses only Node built-ins. Both commands publish the port on `127.0.0.1` only, so the dashboard is not reachable from your network. Set `PORT` and `HOST` to listen elsewhere — the same variables work for `npm start`.
+
 ### Run automatically on macOS
 
 To keep the server running in the background whenever you log in:
