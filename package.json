@@ -10,9 +10,6 @@
     "test": "node --test tests/*.test.mjs scripts/serve.test.mjs",
     "test:e2e": "playwright test",
     "test:live": "node scripts/live-check.mjs",
-    "startup:install": "node scripts/startup.mjs install",
-    "startup:uninstall": "node scripts/startup.mjs uninstall",
-    "startup:status": "node scripts/startup.mjs status",
     "format": "prettier --write src scripts tests package.json index.html github-digest.html CLAUDE.md README.md github-digest.map.md github-digest.md docs playwright.config.js"
   },
   "engines": {

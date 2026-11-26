@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+.gh-digest
+local
+test-results
+playwright-report
+tests
+docs
+*.log
+.DS_Store

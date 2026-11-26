@@ -58,7 +58,7 @@ test("background refresh uses a worker heartbeat", () => {
 test("an existing PR is not new only because its section changed", () => {
   const oldSnap = {
     prs: {
-      "ardoq/example#1": {
+      "acme/example#1": {
         author: "me",
         section: 3,
         updatedAt: at,
@@ -69,16 +69,16 @@ test("an existing PR is not new only because its section changed", () => {
   };
   const moved = {
     prs: {
-      "ardoq/example#1": {
-        ...oldSnap.prs["ardoq/example#1"],
+      "acme/example#1": {
+        ...oldSnap.prs["acme/example#1"],
         section: 4,
       },
     },
   };
   const changed = {
     prs: {
-      "ardoq/example#1": {
-        ...moved.prs["ardoq/example#1"],
+      "acme/example#1": {
+        ...moved.prs["acme/example#1"],
         updatedAt: later,
       },
     },
@@ -86,7 +86,7 @@ test("an existing PR is not new only because its section changed", () => {
 
   assert.deepEqual(diff(oldSnap, moved), {});
   assert.deepEqual(diff(oldSnap, changed), {
-    "ardoq/example#1": "UPDATED",
+    "acme/example#1": "UPDATED",
   });
 });
 

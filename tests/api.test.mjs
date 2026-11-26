@@ -64,9 +64,9 @@ test("notification actors are resolved from comments, PRs, and timeline events",
           updated_at: new Date(now).toISOString(),
           subject: {
             type: "PullRequest",
-            url: "https://api.github.com/repos/ardoq/repo/pulls/1",
+            url: "https://api.github.com/repos/acme/repo/pulls/1",
             latest_comment_url:
-              "https://api.github.com/repos/ardoq/repo/issues/comments/42",
+              "https://api.github.com/repos/acme/repo/issues/comments/42",
           },
         },
         {
@@ -75,21 +75,21 @@ test("notification actors are resolved from comments, PRs, and timeline events",
           updated_at: new Date(now).toISOString(),
           subject: {
             type: "PullRequest",
-            url: "https://api.github.com/repos/ardoq/repo/pulls/2",
+            url: "https://api.github.com/repos/acme/repo/pulls/2",
             latest_comment_url:
-              "https://api.github.com/repos/ardoq/repo/issues/comments/unrelated",
+              "https://api.github.com/repos/acme/repo/issues/comments/unrelated",
           },
         },
       ]);
-    if (path === "/repos/ardoq/repo/issues/comments/42")
+    if (path === "/repos/acme/repo/issues/comments/42")
       return response({
         id: 42,
         user: { login: "commenter" },
         body: "Mention body",
         created_at: new Date(now - 2000).toISOString(),
-        html_url: "https://github.com/ardoq/repo/pull/1#issuecomment-42",
+        html_url: "https://github.com/acme/repo/pull/1#issuecomment-42",
       });
-    if (path === "/repos/ardoq/repo/issues/2/timeline")
+    if (path === "/repos/acme/repo/issues/2/timeline")
       return response([
         {
           event: "assigned",
@@ -121,15 +121,15 @@ test("notification actors are resolved from comments, PRs, and timeline events",
       updated_at: new Date(now).toISOString(),
       subject: {
         type: "PullRequest",
-        url: "https://api.github.com/repos/ardoq/repo/pulls/1",
+        url: "https://api.github.com/repos/acme/repo/pulls/1",
         latest_comment_url:
-          "https://api.github.com/repos/ardoq/repo/issues/comments/42",
+          "https://api.github.com/repos/acme/repo/issues/comments/42",
       },
       actor: "commenter",
       commentId: "42",
       eventAt: new Date(now - 2000).toISOString(),
       preview: "Mention body",
-      commentUrl: "https://github.com/ardoq/repo/pull/1#issuecomment-42",
+      commentUrl: "https://github.com/acme/repo/pull/1#issuecomment-42",
     },
   );
 });

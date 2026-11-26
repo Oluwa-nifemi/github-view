@@ -31,6 +31,7 @@ export async function enrichTeammateOpen({ prs, token }) {
   // Agent-bot-authored PRs assigned to a teammate also belong in section 7.
   // GitHub rejects `author:<bot>` in search, so we search by
   // `assignee:<teammate>` across all session.teammates and filter for agent bot authorship.
+  if (!config.AGENT_BOT_LOGIN || !teammateLogins.length) return;
   const agentBotAssignedToTeammate = await searchByTeammates(
     "assignee",
     teammateLogins,

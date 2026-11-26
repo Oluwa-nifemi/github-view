@@ -23,17 +23,17 @@ async function mountGroups(page) {
     const prs = Object.fromEntries(
       [1, 2, 3, 4].map((number) => {
         const ticket = number < 3 ? "AI-2046" : "AI-2072";
-        const id = `ardoq/example#${number}`;
+        const id = `acme/example#${number}`;
         return [
           id,
           {
             id,
             number,
             title: `${ticket} Change ${number}`,
-            repo: "ardoq/example",
+            repo: "acme/example",
             author: "me",
             section: 4,
-            url: `https://github.com/ardoq/example/pull/${number}`,
+            url: `https://github.com/acme/example/pull/${number}`,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },

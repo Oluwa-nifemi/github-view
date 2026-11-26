@@ -31,9 +31,10 @@ export async function buildSnapshot(
       ? cachedSnapshot.prs
       : {};
 
-  const reviewQ = `is:pr is:open archived:false review-requested:${session.USERNAME} org:${config.ORG}`;
-  const authoredQ = `is:pr is:open archived:false author:${session.USERNAME} org:${config.ORG}`;
-  const assignedQ = `is:pr is:open archived:false assignee:${session.USERNAME} org:${config.ORG}`;
+  const orgFilter = config.ORG ? ` org:${config.ORG}` : "";
+  const reviewQ = `is:pr is:open archived:false review-requested:${session.USERNAME}${orgFilter}`;
+  const authoredQ = `is:pr is:open archived:false author:${session.USERNAME}${orgFilter}`;
+  const assignedQ = `is:pr is:open archived:false assignee:${session.USERNAME}${orgFilter}`;
 
   const teammateLoginsForSearch = [...session.teammates].filter(
     (login) => login !== session.USERNAME,
@@ -43,11 +44,14 @@ export async function buildSnapshot(
     teammateLoginsForSearch,
     token,
   );
-  const teamReviewSearch = searchByTeammates(
-    "team-review-requested",
-    config.TEAMS.map((team) => `${config.ORG}/${team}`),
-    token,
-  );
+  const teamReviewSearch =
+    config.ORG && config.TEAMS.length
+      ? searchByTeammates(
+          "team-review-requested",
+          config.TEAMS.map((team) => `${config.ORG}/${team}`),
+          token,
+        )
+      : Promise.resolve([]);
 
   const [
     reviewItems,
@@ -79,11 +83,13 @@ export async function buildSnapshot(
   // Can't search `author:<bot>` directly (GitHub rejects bot accounts),
   // so we derive from session.teammates' review-requested lists.
   const agentBotItemsMap = new Map();
-  for (const item of teammateReviewItems) {
-    if (item.user?.login !== config.AGENT_BOT_LOGIN) continue;
-    const repo = repoFromIssue(item);
-    if (!repo) continue;
-    agentBotItemsMap.set(`${repo}#${item.number}`, item);
+  if (config.AGENT_BOT_LOGIN) {
+    for (const item of teammateReviewItems) {
+      if (item.user?.login !== config.AGENT_BOT_LOGIN) continue;
+      const repo = repoFromIssue(item);
+      if (!repo) continue;
+      agentBotItemsMap.set(`${repo}#${item.number}`, item);
+    }
   }
   const agentBotItems = [...agentBotItemsMap.values()];
 

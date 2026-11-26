@@ -15,7 +15,8 @@ export async function enrichEngaged({ cachedPRs, prs, token }) {
   const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  const engagedQ = `is:pr is:open archived:false commenter:${session.USERNAME} org:${config.ORG} updated:>=${oneMonthAgo}`;
+  const orgFilter = config.ORG ? ` org:${config.ORG}` : "";
+  const engagedQ = `is:pr is:open archived:false commenter:${session.USERNAME}${orgFilter} updated:>=${oneMonthAgo}`;
   const engagedItems = await search(engagedQ, token);
 
   await allRequests(

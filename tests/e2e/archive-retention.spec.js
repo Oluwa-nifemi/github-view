@@ -37,8 +37,8 @@ test("archived and set-aside PRs survive empty searches and reloads", async ({
               ...pr,
               updatedAt,
               createdAt: updatedAt,
-              url: `https://github.com/ardoq/example/pull/${pr.number}`,
-              repository: { nameWithOwner: "ardoq/example" },
+              url: `https://github.com/acme/example/pull/${pr.number}`,
+              repository: { nameWithOwner: "acme/example" },
               assignees: { nodes: [] },
             }));
       data = {
@@ -72,8 +72,8 @@ test("archived and set-aside PRs survive empty searches and reloads", async ({
   await page.goto("/");
   const refresh = page.getByRole("button", { name: "Refresh", exact: true });
   await expect(refresh).toBeEnabled();
-  const archived = page.locator('[data-pr-id="ardoq/example#1"]');
-  const stashed = page.locator('[data-pr-id="ardoq/example#2"]');
+  const archived = page.locator('[data-pr-id="acme/example#1"]');
+  const stashed = page.locator('[data-pr-id="acme/example#2"]');
   await archived.getByRole("button", { name: "Archive", exact: true }).click();
   await page.getByRole("button", { name: /Archived/ }).click();
   await page.getByRole("button", { name: /Your Open PRs/ }).click();

@@ -4,13 +4,11 @@ const sameLogin = (left, right) =>
   !!left && !!right && left.toLowerCase() === right.toLowerCase();
 
 export function collectMyItems({ username, agentBotLogin, sources }) {
-  const agentLogins = [
-    agentBotLogin,
-    "aiops-optimus",
-    "aiops-optimus[bot]",
-    "teamai-orion",
-    "teamai-orion[bot]",
-  ];
+  const agentLogins = agentBotLogin
+    ? agentBotLogin.endsWith("[bot]")
+      ? [agentBotLogin]
+      : [agentBotLogin, `${agentBotLogin}[bot]`]
+    : [];
   const items = new Map();
   for (const item of sources.flat()) {
     const repo = repoFromIssue(item);

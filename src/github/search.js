@@ -53,8 +53,11 @@ export async function searchByTeammates(qualifier, logins, token, extraQ = "") {
   const ignoredReposQuery = [...config.IGNORED_REPOS]
     .map((repo) => `-repo:${repo}`)
     .join(" ");
+  const orgQ = config.ORG ? `org:${config.ORG}` : "";
   const q =
-    `is:pr is:open archived:false org:${config.ORG} ${qualifierStr} ${extraQ} ${ignoredReposQuery}`.trim();
+    `is:pr is:open archived:false ${orgQ} ${qualifierStr} ${extraQ} ${ignoredReposQuery}`
+      .replace(/\s+/g, " ")
+      .trim();
   return searchPullRequests(q, token);
 }
 export function repoFromIssue(item) {

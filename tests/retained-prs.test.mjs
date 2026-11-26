@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { retainSavedPRs, retainOpenSavedPRs } from "../src/ui/retainedPRs.js";
 
-const pr = { id: "ardoq/ardoq-api#21057", title: "Saved PR" };
+const pr = { id: "acme/api#21057", title: "Saved PR" };
 
 test("set-aside PRs survive search omissions only while still open", async () => {
   for (const detail of [

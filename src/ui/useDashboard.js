@@ -8,7 +8,7 @@ import {
 } from "./state.js";
 import { buildSnapshot } from "../snapshot/build.js";
 import { ghJson } from "../github/client.js";
-import { session } from "../config.js";
+import { config, session } from "../config.js";
 import { diff } from "../domain/activity.js";
 import { startRefreshScheduler } from "./refreshScheduler.js";
 import { retainOpenSavedPRs, retainSavedPRs } from "./retainedPRs.js";
@@ -95,7 +95,7 @@ export function useDashboard() {
     localStorage.removeItem("gh_digest_team_members");
     session.teammates = new Set();
   }
-  async function connect(value) {
+  async function connect(value, initialScope) {
     setBusy(true);
     setError("");
     const generation = ++epoch.current;
@@ -105,6 +105,29 @@ export function useDashboard() {
       const user = await ghJson("/user", value);
       if (generation !== epoch.current) return;
       if (!user?.login) throw new Error("GitHub did not return an account.");
+      if (initialScope) {
+        const nextOrg =
+          typeof initialScope.org === "string"
+            ? initialScope.org.trim()
+            : config.ORG;
+        const nextTeams = Array.isArray(initialScope.teams)
+          ? initialScope.teams.map((t) => t.trim()).filter(Boolean)
+          : config.TEAMS;
+        if (
+          nextOrg !== config.ORG ||
+          JSON.stringify(nextTeams) !== JSON.stringify(config.TEAMS)
+        ) {
+          config.ORG = nextOrg;
+          config.TEAMS = nextTeams;
+          const savedConfig = read("gh_digest_user_config", {});
+          write("gh_digest_user_config", {
+            ...savedConfig,
+            org: nextOrg,
+            teams: nextTeams,
+          });
+          localStorage.removeItem("gh_digest_team_members");
+        }
+      }
       if (value !== current.current.token) rateUntil.current = 0;
       if (localStorage.getItem("gh_username") !== user.login)
         clearAccount(user.login);
@@ -134,7 +157,7 @@ export function useDashboard() {
     if (inflight.current) {
       if (inflight.current.generation === epoch.current)
         return inflight.current.promise;
-      await inflight.current.promise;
+      await inflight.current.promise.catch(() => {});
       return refresh();
     }
     if (Date.now() < rateUntil.current) return;
@@ -199,8 +222,7 @@ export function useDashboard() {
         }
       } finally {
         if (generation === epoch.current) setBusy(false);
-        if (inflight.current?.generation === generation)
-          inflight.current = null;
+        if (inflight.current?.promise === promise) inflight.current = null;
       }
     })();
     inflight.current = { promise, generation };
@@ -233,7 +255,7 @@ export function useDashboard() {
   }, [token]);
   async function saveSettings(apply) {
     epoch.current++;
-    if (inflight.current) await inflight.current.promise;
+    if (inflight.current) await inflight.current.promise.catch(() => {});
     try {
       apply();
     } catch (error) {

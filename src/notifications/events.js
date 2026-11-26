@@ -11,6 +11,11 @@ export function collectNotificationEvents(
   const cutoff = Date.parse(oldSnap.timestamp) - 600000;
   const isNew = (at) => !(cutoff > 0) || !at || Date.parse(at) > cutoff;
 
+  const isBotUser = (login) =>
+    !!login &&
+    ((!!config.AGENT_BOT_LOGIN && login === config.AGENT_BOT_LOGIN) ||
+      login.endsWith("[bot]"));
+
   for (const [prId, pr] of Object.entries(newSnap.prs)) {
     const old = oldPRs[prId];
 
@@ -21,10 +26,7 @@ export function collectNotificationEvents(
       );
       for (const review of pr.reviews || []) {
         if (review.user === pr.author) continue;
-        const isBot =
-          review.user &&
-          (review.user === config.AGENT_BOT_LOGIN ||
-            review.user.endsWith("[bot]"));
+        const isBot = isBotUser(review.user);
         if (review.state === "COMMENTED" && !review.preview?.trim()) continue;
         const rKey = `${review.user}:${review.submittedAt}`;
         if (oldReviewKeys.has(rKey)) continue;
@@ -64,10 +66,7 @@ export function collectNotificationEvents(
         const cKey = `${comment.user}:${comment.createdAt}`;
         if (oldCommentKeys.has(cKey)) continue;
         if (!isNew(comment.createdAt)) continue;
-        const isBot =
-          comment.user &&
-          (comment.user === config.AGENT_BOT_LOGIN ||
-            comment.user.endsWith("[bot]"));
+        const isBot = isBotUser(comment.user);
         const type =
           comment.replyToUser === username
             ? "reply_to_my_comment"
@@ -104,19 +103,11 @@ export function collectNotificationEvents(
       for (const comment of pr.comments || []) {
         if (comment.user === username) continue;
         // Skip bot comments on other people's PRs — only useful on your own
-        if (
-          comment.user &&
-          (comment.user === config.AGENT_BOT_LOGIN ||
-            comment.user.endsWith("[bot]"))
-        )
-          continue;
+        if (isBotUser(comment.user)) continue;
         const cKey = `${comment.user}:${comment.createdAt}`;
         if (oldCommentKeys.has(cKey)) continue;
         if (!isNew(comment.createdAt)) continue;
-        const isBot =
-          comment.user &&
-          (comment.user === config.AGENT_BOT_LOGIN ||
-            comment.user.endsWith("[bot]"));
+        const isBot = isBotUser(comment.user);
         const type =
           comment.replyToUser === username
             ? "reply_to_my_comment"
