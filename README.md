@@ -15,24 +15,37 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 ## See it in action
 
-**PR dashboard and Settings.**
+**PR dashboard.** High Priority and Your Open PRs on the left, the rest of the team activity on the right.
 
 <table>
   <tr>
-    <td width="56%" valign="top">
-      <a href="docs/demo/pr-dashboard.png"><img src="docs/demo/pr-dashboard-hero.png" alt="PR dashboard showing High Priority and Your Open PRs"></a>
+    <td width="50%" valign="top">
+      <a href="docs/demo/pr-dashboard.png"><img src="docs/demo/pr-dashboard-a.png" alt="PR dashboard showing High Priority and Your Open PRs grouped by ticket and CI state"></a>
     </td>
-    <td width="44%" valign="top">
-      <a href="docs/demo/settings.png"><img src="docs/demo/settings-hero.png" alt="Settings modal showing Workspace and Teammates"></a>
+    <td width="50%" valign="top">
+      <a href="docs/demo/pr-dashboard.png"><img src="docs/demo/pr-dashboard-b.png" alt="PR dashboard showing Team Requests, Team Handled, Engaged and Teammates' Open PRs"></a>
     </td>
   </tr>
 </table>
 
-Click either image for the full-size capture. High Priority collects direct and team review requests, Your Open PRs groups by ticket and CI state, and Settings configures the workspace without touching code.
-
 **Notifications triage.**
 
 ![Notifications view showing mention, reply, changes requested and assignment events](docs/demo/notifications.png)
+
+**Settings.** Workspace and teammates on the left, automation, CI filters, and backup on the right.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/demo/settings.png"><img src="docs/demo/settings-a.png" alt="Settings showing the Workspace and Teammates groups"></a>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/demo/settings.png"><img src="docs/demo/settings-b.png" alt="Settings showing Automation and CI and Data and Backup groups"></a>
+    </td>
+  </tr>
+</table>
+
+Click any image for the full-size capture.
 
 ## Quick start
 
