@@ -19,8 +19,8 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/demo/pr-dashboard-a.png" width="400" alt="PR dashboard showing High Priority and Your Open PRs"></td>
-    <td width="50%" valign="top"><img src="docs/demo/pr-dashboard-b.png" width="400" alt="PR dashboard showing Team Requests, Team Handled, Engaged and Teammates' Open PRs"></td>
+    <td width="50%" valign="top"><img src="docs/demo/dashboard-1.png" width="400" alt="PR dashboard showing High Priority and Your Open PRs"></td>
+    <td width="50%" valign="top"><img src="docs/demo/dashboard-2.png" width="400" alt="PR dashboard showing Team Requests, Team Handled, Engaged and Teammates' Open PRs"></td>
   </tr>
 </table>
 
@@ -32,8 +32,8 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/demo/settings-a.png" width="400" alt="Settings showing the Workspace and Teammates groups"></td>
-    <td width="50%" valign="top"><img src="docs/demo/settings-b.png" width="400" alt="Settings showing the Automation and CI and Data and Backup groups"></td>
+    <td width="50%" valign="top"><img src="docs/demo/settings-1.png" width="400" alt="Settings showing the Workspace and Teammates groups"></td>
+    <td width="50%" valign="top"><img src="docs/demo/settings-2.png" width="400" alt="Settings showing the Automation and CI and Data and Backup groups"></td>
   </tr>
 </table>
 
