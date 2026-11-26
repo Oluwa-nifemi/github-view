@@ -39,57 +39,48 @@ GitHub View organizes your open PRs and recent activity into clear sections so y
 
 ## Quick start
 
-Requires Node 22.12+ and npm.
-
-1. Clone the repo:
-
-   ```sh
-   git clone https://github.com/Oluwa-nifemi/github-view.git
-   cd github-view
-   ```
-
-2. Install dependencies, build, and start the local server:
-
-   ```sh
-   npm ci
-   npm run build
-   npm start
-   ```
-
-3. Open [http://127.0.0.1:4173](http://127.0.0.1:4173). Paste your GitHub Personal Access Token, optionally enter your organization and team slugs, and click **Save and load**.
-
-Leave Organization and Teams blank to include pull requests from all accessible repositories. You can change your workspace scope and preferences at any time from **Settings**.
-
-### Run with Docker
-
-Docker is the shortest cross-platform path: no Node install, no login service, works on macOS, Linux, and Windows.
+Docker is the only thing you need to install. macOS, Linux, and Windows all work.
 
 ```sh
 git clone https://github.com/Oluwa-nifemi/github-view.git
+cd github-view
 docker compose up -d --build
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173) and paste your token. Your data stays across restarts, because all state lives in your browser. Update it later with `git pull && docker compose up -d --build`, stop it with `docker compose down`.
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173) and paste your GitHub Personal Access Token, optionally enter your organization and team slugs, and click **Save and load**.
 
-#### Start automatically
+Leave Organization and Teams blank to include pull requests from all accessible repositories. You can change your workspace scope and preferences at any time from **Settings**.
 
-The compose file sets `restart: unless-stopped`, so the container comes back whenever the Docker engine starts: after a reboot, after Docker Desktop restarts, and after a crash. One run of `docker compose up -d` is enough; you do not need it again.
+Your data survives restarts because all state lives in your browser. Update with `git pull && docker compose up -d --build`, stop with `docker compose down`.
 
-Containers cannot start while the Docker engine is stopped, so also let Docker start by itself:
+### Start automatically
 
-- **Docker Desktop:** Settings → General → enable **Start Docker Desktop when you sign in**.
-- **Linux:** `sudo systemctl enable --now docker`.
+The compose file sets `restart: unless-stopped`, so the container comes back whenever the Docker engine starts: after a reboot, after a Docker Desktop restart, and after a crash. One `docker compose up -d` is enough.
 
-`docker compose stop` marks the container as deliberately stopped; it then stays down until you run `docker compose up -d` again. Use `docker compose ps` to check its state.
+Containers cannot start while the engine is stopped. If you want the engine up after you log in too, enable its own start-at-login setting: in Docker Desktop, Settings → General → **Start Docker Desktop when you sign in**; on Linux, `sudo systemctl enable --now docker`.
 
-Without Compose:
+`docker compose stop` marks the container as deliberately stopped. It then stays down until you run `docker compose up -d` again. Use `docker compose ps` to check its state.
+
+### Without Compose
 
 ```sh
 docker build -t github-view .
-docker run --rm -p 127.0.0.1:4173:4173 github-view
+docker run --rm --restart unless-stopped -p 127.0.0.1:4173:4173 github-view
 ```
 
-The image builds the app and serves it with no runtime dependencies, because `scripts/serve.mjs` uses only Node built-ins. Both commands publish the port on `127.0.0.1` only, so the dashboard is not reachable from your network. Set `PORT` and `HOST` to listen elsewhere — the same variables work for `npm start`.
+The image builds the app and serves it with no runtime dependencies, because `scripts/serve.mjs` uses only Node built-ins. Both commands publish the port on `127.0.0.1` only, so the dashboard is not reachable from your network. Set `PORT` and `HOST` to listen elsewhere.
+
+### Run from source
+
+For development, or when you would rather use Node than Docker. Requires Node 22.12+ and npm.
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+`HOST` and `PORT` work here too. Use `npm run dev` for automatic reloads, described under Development.
 
 ### What to connect
 

@@ -7,8 +7,8 @@ Read `github-digest.map.md` to locate the owning module before editing.
 
 - Use the module map and `rg` to locate code, then read targeted ranges. Do not load large files wholesale.
 - Update `github-digest.map.md` after structural changes so module ownership and data contracts stay accurate.
-- `npm ci`, then `npm run dev`. Production: `npm run build && npm start`.
-- After every code change, do this without being asked: run `npm test` and `npm run startup:install` with escalation (`require_escalated`). Tests open a local port. `startup:install` rebuilds and restarts the LaunchAgent. Then tell the user to reload the browser.
+- `npm ci`, then `npm run dev` for local work. The app runs from Docker: `docker compose up -d --build` serves the built site on `127.0.0.1:4173`.
+- After every code change, do this without being asked: run `npm test` and `npm run build`, then refresh the container with `docker compose up -d --build` (escalated) so the running site matches. Tests open a local port. Tell the user to reload the browser.
 - Keep feature changes inside their owning modules. Do not rebuild a large shared controller or add a second UI framework.
 - UI components live in `src/ui`; API access in `src/github`; PR enrichment in `src/snapshot`; review/activity rules in `src/domain`.
 - `buildSnapshot` returns a complete snapshot. Failed required requests reject the refresh so the last good snapshot stays visible. Do not silently turn failed requests into empty lists or successful CI results.
@@ -27,4 +27,4 @@ Read `github-digest.map.md` to locate the owning module before editing.
 - `npm run test:live`: isolated browser with the existing `gh` credential. Organizations with SAML SSO require SSO authorization; do not add scopes to work around SSO.
 - Format changed files with `npm run format` and inspect browser screenshots after UI changes.
 
-`AGENTS.md` is a symlink to this file. Keep the map and README current when changing module ownership or startup.
+`AGENTS.md` is a symlink to this file. Keep the map and README current when changing module ownership or run instructions.

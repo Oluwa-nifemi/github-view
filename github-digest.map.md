@@ -16,7 +16,7 @@
 | Snapshot helpers       | `src/snapshot/model.js`, `ci.js`, `sources.js`                                                | PR data shape, source priority, and CI classification                             |
 | Domain rules           | `src/domain/reviews.js`, `activity.js`, `comments.js`, `text.js`                              | Review classification, badges, activity, normalized comments                      |
 | Styling                | `src/styles/base.css`, `cards.css`, `app.css`, `notifications.css`, `integration.css`         | Original styling plus semantic-control compatibility                              |
-| Local runtime          | `scripts/serve.mjs`, `startup.mjs`, `Dockerfile`, `docker-compose.yml`                        | Loopback server, macOS login service, and container image                         |
+| Local runtime          | `scripts/serve.mjs`, `Dockerfile`, `docker-compose.yml`                                       | Loopback server and container image                                               |
 | Migration              | `github-digest.html`, `scripts/export-legacy.js`                                              | Export settings from the old file origin                                          |
 | Watcher                | `.gh-digest/watch.mjs`                                                                        | Optional separate one-shot macOS notification check                               |
 
